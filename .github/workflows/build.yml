@@ -1,0 +1,87 @@
+name: Build wheels
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-20.04, macos-11, windows-2022 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel
+        shell: bash
+        run: |
+          export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/triton/releases/expanded_assets/2.1.0
+          pip wheel . -v -w wheelhouse
+
+      - name: Copy wheel
+        shell: bash
+        run: |
+          mkdir -p ${{ github.sha }}
+          mv wheelhouse/triton*.whl ${{ github.sha }}/
+
+      - name: Upload an artifact
+        uses: actions/upload-artifact@v3
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          if-no-files-found: error
+          name: build_artifact
+          path: ${{ github.sha }}
+
+  upload-tarballs:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    needs: [ build ]
+
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build_artifact
+          path: ${{ github.sha }}
+
+      - name: Set up a release page
+        id: setup_release
+        run: |
+          TRITONAIR_VERSION=$(python setup.py --version)
+          tag_name="$TRITONAIR_VERSION"
+          release_title="triton-air $TRITONAIR_VERSION"
+          echo "triton-air $TRITONAIR_VERSION created at $(date)" > body.md
+          echo "wheels" >> $GITHUB_OUTPUT
+          echo "wheels" >> $GITHUB_OUTPUT
+
+      - name: Upload tarballs
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          artifacts: "${{ github.sha }}/*.whl"
+          bodyFile: body.md
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag: "${{ steps.setup_release.outputs.tag_name }}"
+          name: "${{ steps.setup_release.outputs.release_title }}"
+          removeArtifacts: false
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: true
