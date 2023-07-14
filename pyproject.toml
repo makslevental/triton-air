@@ -2,15 +2,18 @@
 name = "triton-air"
 version = "0.0.1"
 requires-python = ">=3.11"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 dependencies = [
-  "triton-mlir"
+    "triton-mlir",
+    "numpy",
+    "mlir-python-utils",
+    "mlir-native-tools"
 ]
 [project.optional-dependencies] # Optional
 test = ["pytest"]
 [build-system]
 # https://stackoverflow.com/a/69711730
-requires = ["setuptools>=64.0.0", "wheel"]
+requires = ["setuptools>=64.0.0", "wheel", "black"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
