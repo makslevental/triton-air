@@ -20,16 +20,12 @@ from triton_mlir_bindings.ir import (
     Context,
 )
 
-from triton_air.dialects import triton
+from mlir_utils.dialects import triton
 from triton_air.types import get_ptr_type
 
 jit = make_maybe_no_args_decorator(
     partial(func_base, FuncOp=FuncOp.__base__, ReturnOp=ReturnOp, CallOp=CallOp)
 )
-
-
-def program_id(axis=0):
-    return triton.get_program_id(axis=axis)
 
 
 def arange(start, end, *, loc=None, ip=None):
@@ -82,6 +78,22 @@ def _tT_EvictionPolicyAttr(eviction_policy: str | Attribute, context: Context):
     )
 
 
+@register_attribute_builder("TT_ProgramDim")
+def _tT_ProgramDim(dim: str | Attribute, context: Context):
+    dims = {
+        "x": 0,
+        "y": 1,
+        "z": 2,
+    }
+    if isinstance(dim, Attribute):
+        return dim
+    assert dim in dims, f"dim {dim} not in dims"
+    return IntegerAttr.get(
+        IntegerType.get_signless(32, context=context),
+        dims[dim],
+    )
+
+
 @register_attribute_builder("TT_PaddingOptionAttr")
 def _tT_PaddingOptionAttr(padding_option: str | Attribute, context: Context):
     padding_options = {
@@ -125,9 +137,9 @@ def _tT_AtomicRMWAttr(rmwop: str | Attribute, context: Context):
 def load(
     ptr: Value,
     mask: Value,
-    cache="none",
-    evict="normal",
-    is_volatile=False,
+    cache,
+    evict,
+    is_volatile,
     *,
     other=None,
     boundary_check=None,
