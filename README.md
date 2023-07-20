@@ -3,12 +3,13 @@
 ## Install
 
 ```shell
-pip install triton-air \
+$ pip install triton-air \
   -f https://github.com/makslevental/triton-air/releases/expanded_assets/latest \
   -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
   -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
   -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
   -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+$ configure-mlir-python-utils triton_mlir_bindings
 ```
 
 ## Dev
