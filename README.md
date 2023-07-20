@@ -3,23 +3,17 @@
 ## Install
 
 ```shell
-$ pip install triton-air \
-  -f https://github.com/makslevental/triton-air/releases/expanded_assets/latest \
-  -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
-  -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
-  -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
-  -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/wheels/releases/expanded_assets/i
+$ pip install triton-air
 $ configure-mlir-python-utils triton_mlir_bindings
 ```
 
 ## Dev
 
 ```shell
+export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/wheels/releases/expanded_assets/i
 # you need setuptools >= 64 for build_editable
 $ pip3 install setuptools -U
-$ pip install -e . \
-  -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
-  -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
-  -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+$ pip install -e . 
 $ configure-mlir-python-utils triton_mlir_bindings
 ```

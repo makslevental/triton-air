@@ -38,11 +38,9 @@ jobs:
       - name: Install
         shell: bash
         run: |
+          export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/wheels/releases/expanded_assets/i
           pip install setuptools -U
-          pip install -e .[test] \
-            -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
-            -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
-            -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+          pip install -e .[test]
           if [ ${{ matrix.os }} == 'windows-2022' ]; then
             # configure-mlir-python-utils.exe -y triton_mlir_bindings
             pushd /tmp && python -m mlir_utils._configuration -y triton_mlir_bindings && popd

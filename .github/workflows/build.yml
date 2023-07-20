@@ -33,10 +33,8 @@ jobs:
         id: build_wheel
         shell: bash
         run: |
-          pip wheel . -v -w wheelhouse \
-            -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
-            -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
-            -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+          export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/wheels/releases/expanded_assets/i
+          pip wheel . -v -w wheelhouse
           pip install toml
           VERSION="$(python -c 'import toml; print(toml.load("pyproject.toml")["project"]["version"])')"
           echo "version=${VERSION}" | tee -a $GITHUB_OUTPUT
@@ -108,3 +106,17 @@ jobs:
           removeArtifacts: false
           allowUpdates: true
           replacesArtifacts: true
+
+      - name: Release current commit
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          owner: makslevental
+          repo: wheels
+          artifacts: "dist/*.whl"
+          token: "${{ secrets.WHEELS_REPO }}"
+          tag: "i"
+          name: "i"
+          removeArtifacts: false
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: true
