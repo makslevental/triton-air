@@ -30,6 +30,7 @@ jobs:
           python-version: "3.11"
 
       - name: Build wheel
+        id: build_wheel
         shell: bash
         run: |
           pip wheel . -v -w wheelhouse \
@@ -80,8 +81,8 @@ jobs:
           tag_name="$TRITONAIR_VERSION"
           release_title="triton-air $TRITONAIR_VERSION"
           echo "triton-air $TRITONAIR_VERSION created at $(date)" > body.md
-          echo "wheels" >> $GITHUB_OUTPUT
-          echo "wheels" >> $GITHUB_OUTPUT
+          echo "tag_name=$TRITONAIR_VERSION" >> $GITHUB_OUTPUT
+          echo "release_title=triton-air-$TRITONAIR_VERSION" >> $GITHUB_OUTPUT
 
       - name: Upload tarballs
         uses: ncipollo/release-action@v1.12.0
