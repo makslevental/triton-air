@@ -36,6 +36,7 @@ jobs:
             -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
             -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
             -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+          pip install toml
           VERSION="$(python -c 'import toml; print(toml.load("pyproject.toml")["project"]["version"])')"
           echo "version=${VERSION}" | tee -a $GITHUB_OUTPUT
 
