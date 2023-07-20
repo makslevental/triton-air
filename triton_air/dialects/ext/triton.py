@@ -28,6 +28,10 @@ jit = make_maybe_no_args_decorator(
 )
 
 
+def program_id(axis=0):
+    return triton.get_program_id(axis=axis)
+
+
 def arange(start, end, *, loc=None, ip=None):
     result_type = tensor_t(end - start, i32_t)
     return triton.make_range(result_type, start, end, loc=loc, ip=ip)

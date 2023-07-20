@@ -5,9 +5,15 @@ import pytest
 # noinspection PyUnresolvedReferences
 from triton_mlir_bindings.dialects import triton as triton_dialect
 
-from triton_air.dialects import triton as tl
 from triton_air.dialects.ext import triton
-from triton_air.dialects.ext.triton import splat, arange, addptr, load, store
+from triton_air.dialects.ext.triton import (
+    splat,
+    arange,
+    addptr,
+    load,
+    store,
+    program_id,
+)
 from triton_air.types import ptr, get_ptr_type
 
 # this needs to be below the triton_mlir_bindings
@@ -32,10 +38,8 @@ def test_ptr_type(ctx: MLIRContext):
     def add_kernel(
         x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: i32_t
     ):
-        pid = tl.get_program_id(axis=0)
-        # doesn't until triton catches up to
-        # https://github.com/llvm/llvm-project/commit/bfb1ba752655bf09b35c486f6cc9817dbedfb1bb
-        # block_start = pid * c32
+        pid = program_id(axis=0)
+
         block_start = arith.muli(pid, constant(BLOCK_SIZE, i32_t))
         block_start = splat(block_start, (BLOCK_SIZE,))
 

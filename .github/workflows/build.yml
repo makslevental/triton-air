@@ -2,12 +2,17 @@ name: Build wheels
 
 on:
   workflow_dispatch:
+  release:
+    types:
+      - published
 
 jobs:
 
   build:
 
     runs-on: ${{ matrix.os }}
+    outputs:
+      VERSION: ${{ steps.build_wheel.outputs.version }}
     continue-on-error: true
 
     strategy:
@@ -27,8 +32,12 @@ jobs:
       - name: Build wheel
         shell: bash
         run: |
-          export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/triton/releases/expanded_assets/2.1.0
-          pip wheel . -v -w wheelhouse
+          pip wheel . -v -w wheelhouse \
+            -f https://github.com/makslevental/triton/releases/expanded_assets/2.1.0 \
+            -f https://github.com/makslevental/mlir-python-utils/releases/expanded_assets/latest \
+            -f https://github.com/makslevental/mlir-wheels/releases/expanded_assets/latest
+          VERSION="$(python -c 'import toml; print(toml.load("pyproject.toml")["project"]["version"])')"
+          echo "version=${VERSION}" | tee -a $GITHUB_OUTPUT
 
       - name: Copy wheel
         shell: bash
@@ -61,12 +70,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: build_artifact
-          path: ${{ github.sha }}
+          path: dist
 
       - name: Set up a release page
         id: setup_release
         run: |
-          TRITONAIR_VERSION=$(python setup.py --version)
+          TRITONAIR_VERSION=${{ needs.build.outputs.version }}
           tag_name="$TRITONAIR_VERSION"
           release_title="triton-air $TRITONAIR_VERSION"
           echo "triton-air $TRITONAIR_VERSION created at $(date)" > body.md
@@ -76,7 +85,7 @@ jobs:
       - name: Upload tarballs
         uses: ncipollo/release-action@v1.12.0
         with:
-          artifacts: "${{ github.sha }}/*.whl"
+          artifacts: "dist/triton_air*.whl"
           bodyFile: body.md
           token: "${{ secrets.GITHUB_TOKEN }}"
           tag: "${{ steps.setup_release.outputs.tag_name }}"
@@ -85,3 +94,15 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           makeLatest: true
+
+      - name: Release current commit
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          artifacts: "dist/triton_air*.whl"
+          bodyFile: body.md
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag: "latest"
+          name: "latest"
+          removeArtifacts: false
+          allowUpdates: true
+          replacesArtifacts: true
