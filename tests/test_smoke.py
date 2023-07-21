@@ -1,11 +1,9 @@
 import pytest
+from mlir_utils.dialects import triton as tt
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import filecheck, mlir_ctx as ctx
 from mlir_utils.types import i32_t
-# noinspection PyUnresolvedReferences
-from triton_air.dialects.ext import triton
-from mlir_utils.dialects import triton as tt
 from triton_mlir_bindings.dialects import (
     arith as arith_dialect,
 )

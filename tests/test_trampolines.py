@@ -1,9 +1,9 @@
 import pytest
+from mlir_utils.dialects import triton as tl
 from mlir_utils.dialects.ext import arith
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import filecheck, mlir_ctx as ctx, MLIRContext
-from mlir_utils.dialects import triton as tl
 
 from triton_air.dialects import air
 from triton_air.dialects.ext import triton

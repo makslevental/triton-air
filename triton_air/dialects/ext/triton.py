@@ -1,9 +1,6 @@
-from functools import partial
-
-from mlir_utils.dialects.ext.func import func_base
-from mlir_utils.dialects.util import (
-    make_maybe_no_args_decorator,
-)
+from mlir_utils.dialects.ext.func import FuncBase
+from mlir_utils.dialects.ext.tensor import Tensor
+from mlir_utils.dialects.util import register_value_caster
 from mlir_utils.types import i32_t, tensor_t
 from triton_mlir_bindings._mlir_libs._mlir.ir import IntegerType
 from triton_mlir_bindings.dialects.triton import (
@@ -21,10 +18,10 @@ from triton_mlir_bindings.ir import (
 )
 
 from mlir_utils.dialects import triton
-from triton_air.types import get_ptr_type
+from triton_air.types import get_ptr_type, is_ptr_t
 
-jit = make_maybe_no_args_decorator(
-    partial(func_base, FuncOp=FuncOp.__base__, ReturnOp=ReturnOp, CallOp=CallOp)
+jit = FuncBase(
+    func_op_ctor=FuncOp.__base__, return_op_ctor=ReturnOp, call_op_ctor=CallOp
 )
 
 
@@ -41,6 +38,28 @@ def splat(src: Value, sizes: tuple[int], *, loc=None, ip=None):
 def addptr(ptr: Value, offset: Value, *, loc=None, ip=None):
     result_type = ptr.type
     return triton.addptr(result_type, ptr, offset, loc=loc, ip=ip)
+
+
+class TritonTensor(Tensor):
+    def __add__(self, other: Tensor):
+        if not isinstance(other, Tensor):
+            raise ValueError(f"{other} must be of type Tensor")
+        if not IntegerType.isinstance(other.dtype):
+            raise ValueError(f"{other.dtype} must be int-like")
+
+        return addptr(self, other)
+
+
+def triton_tensor_caster(val: Value):
+    if RankedTensorType.isinstance(val.type) and not is_ptr_t(
+        RankedTensorType(val.type).element_type
+    ):
+        return Tensor(val)
+    else:
+        return TritonTensor(val)
+
+
+register_value_caster(RankedTensorType.static_typeid, triton_tensor_caster, priority=0)
 
 
 @register_attribute_builder("TT_CacheModifierAttr")
