@@ -1,13 +1,15 @@
+from mlir_utils.dialects.ext.arith import Scalar
 from mlir_utils.dialects.ext.func import FuncBase
 from mlir_utils.dialects.ext.tensor import Tensor
-from mlir_utils.dialects.util import register_value_caster
 from mlir_utils.types import i32_t, tensor_t
-from triton_mlir_bindings._mlir_libs._mlir.ir import IntegerType
-from triton_mlir_bindings.dialects.triton import (
-    FuncOp,
-    ReturnOp,
-    CallOp,
+from mlir_utils.util import (
+    make_maybe_no_args_decorator,
+    get_user_code_loc,
+    register_value_caster,
 )
+from triton_mlir_bindings._mlir_libs._mlir.ir import IntegerType
+from triton_mlir_bindings.dialects.linalg.opdsl.lang.emitter import _is_integer_type
+from triton_mlir_bindings.dialects.triton import FuncOp, ReturnOp, CallOp
 from triton_mlir_bindings.ir import (
     Attribute,
     IntegerAttr,
@@ -17,49 +19,57 @@ from triton_mlir_bindings.ir import (
     Context,
 )
 
-from mlir_utils.dialects import triton
+from mlir_utils.dialects import triton, arith
 from triton_air.types import get_ptr_type, is_ptr_t
 
-jit = FuncBase(
-    func_op_ctor=FuncOp.__base__, return_op_ctor=ReturnOp, call_op_ctor=CallOp
-)
 
-
-def arange(start, end, *, loc=None, ip=None):
-    result_type = tensor_t(end - start, i32_t)
-    return triton.make_range(result_type, start, end, loc=loc, ip=ip)
-
-
-def splat(src: Value, sizes: tuple[int], *, loc=None, ip=None):
-    result_type = tensor_t(*sizes, src.type)
-    return triton.splat(result_type, src, loc=loc, ip=ip)
-
-
-def addptr(ptr: Value, offset: Value, *, loc=None, ip=None):
-    result_type = ptr.type
-    return triton.addptr(result_type, ptr, offset, loc=loc, ip=ip)
-
-
+@register_value_caster(RankedTensorType.static_typeid, priority=0)
 class TritonTensor(Tensor):
-    def __add__(self, other: Tensor):
-        if not isinstance(other, Tensor):
-            raise ValueError(f"{other} must be of type Tensor")
-        if not IntegerType.isinstance(other.dtype):
-            raise ValueError(f"{other.dtype} must be int-like")
+    def __add__(self, other: Tensor | Value, *, loc=None):
+        if is_ptr_t(self.dtype):
+            return addptr(self, other)
 
-        return addptr(self, other)
+        if is_ptr_t(other.type) or _is_integer_type(other.type):
+            assert self.has_static_shape()
+            other = splat(other, self.shape)
+            if is_ptr_t(other.dtype):
+                self, other = other, self
+            return addptr(self, other)
+
+        if loc is None:
+            loc = get_user_code_loc()
+        return Tensor.__add__(self, other, loc=loc)
+
+    def __lt__(self, other: Tensor | Value, *, loc=None):
+        if is_ptr_t(other.type) or _is_integer_type(other.type):
+            assert self.has_static_shape()
+            other = splat(other, self.shape)
+        if loc is None:
+            loc = get_user_code_loc()
+        return Tensor.__lt__(self, other, loc=loc)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __getitem__(self, mask):
+        return load(self, mask)
+
+    def __setitem__(self, mask, value, *, loc=None):
+        if loc is None:
+            loc = get_user_code_loc()
+        triton.store(self, value, mask=mask, loc=loc)
 
 
-def triton_tensor_caster(val: Value):
-    if RankedTensorType.isinstance(val.type) and not is_ptr_t(
-        RankedTensorType(val.type).element_type
-    ):
-        return Tensor(val)
-    else:
-        return TritonTensor(val)
+@register_value_caster(IntegerType.static_typeid, priority=0)
+class TritonScalar(Scalar):
+    def __add__(self, other: TritonTensor | Value):
+        if _is_integer_type(self.dtype) and isinstance(other, TritonTensor):
+            return splat(self, other.shape) + other
 
+        return Scalar.__add__(self, other)
 
-register_value_caster(RankedTensorType.static_typeid, triton_tensor_caster, priority=0)
+    def __radd__(self, other):
+        return self + other
 
 
 @register_attribute_builder("TT_CacheModifierAttr")
@@ -153,12 +163,64 @@ def _tT_AtomicRMWAttr(rmwop: str | Attribute, context: Context):
     )
 
 
+@make_maybe_no_args_decorator
+def jit(
+    f,
+    *,
+    sym_visibility=None,
+    arg_attrs=None,
+    res_attrs=None,
+    loc=None,
+    ip=None,
+):
+    if loc is None:
+        loc = get_user_code_loc()
+    return FuncBase(
+        body_builder=f,
+        func_op_ctor=FuncOp.__base__,
+        return_op_ctor=ReturnOp,
+        call_op_ctor=CallOp,
+        sym_visibility=sym_visibility,
+        arg_attrs=arg_attrs,
+        res_attrs=res_attrs,
+        loc=loc,
+        ip=ip,
+    )
+
+
+def arange(start, end, *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
+    result_type = tensor_t(end - start, i32_t)
+    return triton.make_range(result_type, start, end, loc=loc, ip=ip)
+
+
+def splat(src: Value, sizes: tuple[int], *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
+    result_type = tensor_t(*sizes, src.type)
+    return triton.splat(result_type, src, loc=loc, ip=ip)
+
+
+def addptr(ptr: Value, offset: Value, *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
+    result_type = ptr.type
+    return triton.addptr(result_type, ptr, offset, loc=loc, ip=ip)
+
+
+def program_id(axis, *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
+    return triton.get_program_id(axis, loc=loc, ip=ip)
+
+
 def load(
     ptr: Value,
     mask: Value,
-    cache,
-    evict,
-    is_volatile,
+    cache="none",
+    evict="normal",
+    is_volatile=False,
     *,
     other=None,
     boundary_check=None,
@@ -166,6 +228,8 @@ def load(
     loc=None,
     ip=None,
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     if not RankedTensorType.isinstance(ptr.type):
         raise ValueError(f"{ptr=} must be RankedTensorType")
     ptr_type = RankedTensorType(ptr.type)
@@ -199,6 +263,8 @@ def store(
     loc=None,
     ip=None,
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return triton.store(
         ptr,
         value,
@@ -209,3 +275,12 @@ def store(
         loc=loc,
         ip=ip,
     )
+
+
+def cdiv(lhs, rhs, *, loc=None, ip=None):
+    if not isinstance(lhs, TritonScalar):
+        lhs = TritonScalar(lhs, dtype=i32_t)
+    if not isinstance(rhs, TritonScalar):
+        rhs = TritonScalar(rhs, dtype=i32_t)
+
+    return lhs / rhs
