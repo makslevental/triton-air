@@ -1,5 +1,5 @@
 import pytest
-from mlir_utils.dialects.ext.tensor import Tensor
+from mlir_utils.dialects.ext.tensor import Tensor, empty
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import MLIRContext, mlir_ctx as ctx
@@ -41,14 +41,14 @@ def test_ptr_type(ctx: MLIRContext):
 
 def test_tensor_ptrs(ctx: MLIRContext):
     p_f32_t = ptr_t(f32_t)
-    t = Tensor.empty((10, 10), f32_t)
+    t = empty((10, 10), f32_t)
     t_ptr_t = ptr_t(t)
     assert is_ptr_t(t_ptr_t)
     assert t_ptr_t.typeid == p_f32_t.typeid
 
     t_f32_ptr_t = tensor_t(10, 10, t_ptr_t)
     assert repr(t_f32_ptr_t) == "RankedTensorType(tensor<10x10x!tt.ptr<f32>>)"
-    tt = Tensor.empty((10, 10), t_ptr_t)
+    tt = empty((10, 10), t_ptr_t)
     assert tt.type == t_f32_ptr_t
     assert tt.type.typeid == t_f32_ptr_t.typeid
 

@@ -1,4 +1,4 @@
-from mlir_utils.dialects.util import get_result_or_results, maybe_cast, region_op
+from mlir_utils.util import get_result_or_results, maybe_cast, region_op
 from triton_mlir_bindings.ir import Value, Type
 
 from ._air_ops_gen import (
