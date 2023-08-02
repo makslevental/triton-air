@@ -2,14 +2,16 @@ from textwrap import dedent
 
 import pytest
 from mlir_utils.dialects.ext import arith
+from mlir_utils.dialects.ext.scf import range_, yield_
 from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import mlir_ctx as ctx, filecheck, MLIRContext
 from mlir_utils.types import i32_t
+from triton_mlir_bindings.passmanager import PassManager
 
 from triton_air.dialects.ext import triton as tl
-from triton_air.types import p_f32_t
+from triton_air.types import p_f32_t, float32
 
 # needed since the fix isn't defined here nor conftest.py
 pytest.mark.usefixtures("ctx")
@@ -144,30 +146,25 @@ def test_vadd_set_get(ctx: MLIRContext):
 
 
 def test_matmul(ctx: MLIRContext):
-    BLOCK_SIZE_M = 64
-    BLOCK_SIZE_N = 64
-    BLOCK_SIZE_K = 64
-    GROUP_SIZE_M = 64
+    BLOCK_SIZE_M = 16
+    BLOCK_SIZE_N = 16
+    BLOCK_SIZE_K = 16
+    GROUP_SIZE_M = 2
 
     @tl.jit
     def matmul_kernel(
         a_ptr: p_f32_t,
         b_ptr: p_f32_t,
         c_ptr: p_f32_t,
-        # Matrix dimensions
         M: i32_t,
         N: i32_t,
         K: i32_t,
-        # The stride variables represent how much to increase the ptr by when moving by 1
-        # element in a particular dimension. E.g. `stride_am` is how much to increase `a_ptr`
-        # by to get the element one row down (A has M rows).
         stride_am: i32_t,
         stride_ak: i32_t,
         stride_bk: i32_t,
         stride_bn: i32_t,
         stride_cm: i32_t,
         stride_cn: i32_t,
-        # Meta-parameters
     ):
         pid = tl.program_id(axis="x")
         num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
@@ -185,7 +182,144 @@ def test_matmul(ctx: MLIRContext):
         a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
         b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
 
+        accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=float32)
+        for k, (acc, aptrs, bptrs) in range_(
+            0, tl.cdiv(K, BLOCK_SIZE_K), iter_args=[accumulator, a_ptrs, b_ptrs]
+        ):
+            mask = offs_k[None, :] < K - k * BLOCK_SIZE_K
+            a = tl.load(a_ptrs, mask=mask, other=0.0)
+            mask = offs_k[:, None] < K - k * BLOCK_SIZE_K
+            b = tl.load(b_ptrs, mask=mask, other=0.0)
+            # TODO(max): the problem here is the _update_frame_vars upstream
+            acc_next = acc + tl.dot(a, b)
+            aptrs_next = aptrs + BLOCK_SIZE_K * stride_ak
+            bptrs_next = bptrs + BLOCK_SIZE_K * stride_bk
+            yield_(acc_next, aptrs_next, bptrs_next)
+
+        c = acc
+
+        offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+        offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+        c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
+        c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
+        tl.store(c_ptrs, c, mask=c_mask)
+
     matmul_kernel.emit()
 
-    print(ctx.module)
     ctx.module.operation.verify()
+    pm = PassManager.parse("builtin.module(cse)")
+    pm.run(ctx.module.operation)
+
+    correct = dedent(
+        """\
+    module {
+      tt.func @matmul_kernel(%arg0: !tt.ptr<f32>, %arg1: !tt.ptr<f32>, %arg2: !tt.ptr<f32>, %arg3: i32, %arg4: i32, %arg5: i32, %arg6: i32, %arg7: i32, %arg8: i32, %arg9: i32, %arg10: i32, %arg11: i32) {
+        %0 = tt.get_program_id x : i32
+        %c16_i32 = arith.constant 16 : i32
+        %1 = arith.divsi %arg3, %c16_i32 : i32
+        %2 = arith.divsi %arg4, %c16_i32 : i32
+        %c2_i32 = arith.constant 2 : i32
+        %3 = arith.muli %2, %c2_i32 : i32
+        %4 = arith.floordivsi %0, %3 : i32
+        %5 = arith.muli %4, %c2_i32 : i32
+        %6 = arith.subi %1, %5 : i32
+        %7 = arith.remsi %0, %c2_i32 : i32
+        %8 = arith.addi %5, %7 : i32
+        %9 = arith.remsi %0, %3 : i32
+        %10 = arith.floordivsi %9, %c2_i32 : i32
+        %11 = arith.muli %8, %c16_i32 : i32
+        %12 = tt.make_range {end = 16 : i32, start = 0 : i32} : tensor<16xi32>
+        %13 = tt.splat %11 : (i32) -> tensor<16xi32>
+        %14 = arith.addi %13, %12 : tensor<16xi32>
+        %15 = tt.splat %arg3 : (i32) -> tensor<16xi32>
+        %16 = arith.remsi %14, %15 : tensor<16xi32>
+        %17 = arith.muli %10, %c16_i32 : i32
+        %18 = tt.splat %17 : (i32) -> tensor<16xi32>
+        %19 = arith.addi %18, %12 : tensor<16xi32>
+        %20 = tt.splat %arg4 : (i32) -> tensor<16xi32>
+        %21 = arith.remsi %19, %20 : tensor<16xi32>
+        %extracted_slice = tensor.extract_slice %16[0] [16] [1] : tensor<16xi32> to tensor<16xi32>
+        %expanded = tensor.expand_shape %extracted_slice [[0, 1]] : tensor<16xi32> into tensor<16x1xi32>
+        %22 = tt.splat %arg6 : (i32) -> tensor<16x1xi32>
+        %23 = arith.muli %expanded, %22 : tensor<16x1xi32>
+        %extracted_slice_0 = tensor.extract_slice %12[0] [16] [1] : tensor<16xi32> to tensor<16xi32>
+        %expanded_1 = tensor.expand_shape %extracted_slice_0 [[0, 1]] : tensor<16xi32> into tensor<1x16xi32>
+        %24 = tt.splat %arg7 : (i32) -> tensor<1x16xi32>
+        %25 = arith.muli %expanded_1, %24 : tensor<1x16xi32>
+        %26 = tt.broadcast %23 : (tensor<16x1xi32>) -> tensor<16x16xi32>
+        %27 = tt.broadcast %25 : (tensor<1x16xi32>) -> tensor<16x16xi32>
+        %28 = arith.addi %26, %27 : tensor<16x16xi32>
+        %29 = tt.splat %arg0 : (!tt.ptr<f32>) -> tensor<16x16x!tt.ptr<f32>>
+        %30 = tt.addptr %29, %28 : tensor<16x16x!tt.ptr<f32>>, tensor<16x16xi32>
+        %expanded_2 = tensor.expand_shape %extracted_slice_0 [[0, 1]] : tensor<16xi32> into tensor<16x1xi32>
+        %31 = tt.splat %arg8 : (i32) -> tensor<16x1xi32>
+        %32 = arith.muli %expanded_2, %31 : tensor<16x1xi32>
+        %extracted_slice_3 = tensor.extract_slice %21[0] [16] [1] : tensor<16xi32> to tensor<16xi32>
+        %expanded_4 = tensor.expand_shape %extracted_slice_3 [[0, 1]] : tensor<16xi32> into tensor<1x16xi32>
+        %33 = tt.splat %arg9 : (i32) -> tensor<1x16xi32>
+        %34 = arith.muli %expanded_4, %33 : tensor<1x16xi32>
+        %35 = tt.broadcast %32 : (tensor<16x1xi32>) -> tensor<16x16xi32>
+        %36 = tt.broadcast %34 : (tensor<1x16xi32>) -> tensor<16x16xi32>
+        %37 = arith.addi %35, %36 : tensor<16x16xi32>
+        %38 = tt.splat %arg1 : (!tt.ptr<f32>) -> tensor<16x16x!tt.ptr<f32>>
+        %39 = tt.addptr %38, %37 : tensor<16x16x!tt.ptr<f32>>, tensor<16x16xi32>
+        %cst = arith.constant dense<1.000000e+00> : tensor<16x16xf32>
+        %40 = arith.divsi %arg5, %c16_i32 : i32
+        %c0 = arith.constant 0 : index
+        %41 = arith.index_cast %40 : i32 to index
+        %c1 = arith.constant 1 : index
+        %42:3 = scf.for %arg12 = %c0 to %41 step %c1 iter_args(%arg13 = %cst, %arg14 = %30, %arg15 = %39) -> (tensor<16x16xf32>, tensor<16x16x!tt.ptr<f32>>, tensor<16x16x!tt.ptr<f32>>) {
+          %c16 = arith.constant 16 : index
+          %59 = arith.muli %arg12, %c16 : index
+          %60 = arith.index_cast %59 : index to i32
+          %61 = arith.subi %arg5, %60 : i32
+          %62 = tt.splat %61 : (i32) -> tensor<1x16xi32>
+          %63 = arith.cmpi ult, %expanded_1, %62 : tensor<1x16xi32>
+          %cst_9 = arith.constant 0.000000e+00 : f32
+          %64 = tt.splat %cst_9 : (f32) -> tensor<16x16xf32>
+          %65 = tt.broadcast %63 : (tensor<1x16xi1>) -> tensor<16x16xi1>
+          %66 = tt.load %30, %65, %64 {cache = 1 : i32, evict = 1 : i32, isVolatile = false} : tensor<16x16xf32>
+          %67 = tt.splat %61 : (i32) -> tensor<16x1xi32>
+          %68 = arith.cmpi ult, %expanded_2, %67 : tensor<16x1xi32>
+          %69 = tt.broadcast %68 : (tensor<16x1xi1>) -> tensor<16x16xi1>
+          %70 = tt.load %39, %69, %64 {cache = 1 : i32, evict = 1 : i32, isVolatile = false} : tensor<16x16xf32>
+          %cst_10 = arith.constant 1.000000e+00 : f32
+          %71 = tt.splat %cst_10 : (f32) -> tensor<16x16xf32>
+          %72 = tt.dot %66, %70, %71 {allowTF32 = true} : tensor<16x16xf32> * tensor<16x16xf32> -> tensor<16x16xf32>
+          %73 = arith.addf %arg13, %72 : tensor<16x16xf32>
+          %74 = arith.muli %arg7, %c16_i32 : i32
+          %75 = tt.splat %74 : (i32) -> tensor<16x16xi32>
+          %76 = tt.addptr %arg14, %75 : tensor<16x16x!tt.ptr<f32>>, tensor<16x16xi32>
+          %77 = arith.muli %arg8, %c16_i32 : i32
+          %78 = tt.splat %77 : (i32) -> tensor<16x16xi32>
+          %79 = tt.addptr %arg15, %78 : tensor<16x16x!tt.ptr<f32>>, tensor<16x16xi32>
+          scf.yield %73, %76, %79 : tensor<16x16xf32>, tensor<16x16x!tt.ptr<f32>>, tensor<16x16x!tt.ptr<f32>>
+        }
+        %extracted_slice_5 = tensor.extract_slice %14[0] [16] [1] : tensor<16xi32> to tensor<16xi32>
+        %expanded_6 = tensor.expand_shape %extracted_slice_5 [[0, 1]] : tensor<16xi32> into tensor<16x1xi32>
+        %43 = tt.splat %arg10 : (i32) -> tensor<16x1xi32>
+        %44 = arith.muli %43, %expanded_6 : tensor<16x1xi32>
+        %45 = tt.splat %arg2 : (!tt.ptr<f32>) -> tensor<16x1x!tt.ptr<f32>>
+        %46 = tt.addptr %45, %44 : tensor<16x1x!tt.ptr<f32>>, tensor<16x1xi32>
+        %extracted_slice_7 = tensor.extract_slice %19[0] [16] [1] : tensor<16xi32> to tensor<16xi32>
+        %expanded_8 = tensor.expand_shape %extracted_slice_7 [[0, 1]] : tensor<16xi32> into tensor<1x16xi32>
+        %47 = tt.splat %arg11 : (i32) -> tensor<1x16xi32>
+        %48 = arith.muli %47, %expanded_8 : tensor<1x16xi32>
+        %49 = tt.broadcast %48 : (tensor<1x16xi32>) -> tensor<16x1xi32>
+        %50 = tt.addptr %46, %49 : tensor<16x1x!tt.ptr<f32>>, tensor<16x1xi32>
+        %51 = tt.splat %arg3 : (i32) -> tensor<16x1xi32>
+        %52 = arith.cmpi ult, %expanded_6, %51 : tensor<16x1xi32>
+        %53 = tt.splat %arg4 : (i32) -> tensor<1x16xi32>
+        %54 = arith.cmpi ult, %expanded_8, %53 : tensor<1x16xi32>
+        %55 = tt.broadcast %52 : (tensor<16x1xi1>) -> tensor<16x16xi1>
+        %56 = tt.broadcast %54 : (tensor<1x16xi1>) -> tensor<16x16xi1>
+        %57 = arith.andi %55, %56 : tensor<16x16xi1>
+        %58 = tt.broadcast %50 : (tensor<16x1x!tt.ptr<f32>>) -> tensor<16x16x!tt.ptr<f32>>
+        tt.store %58, %42#0, %57 {cache = 1 : i32, evict = 1 : i32} : tensor<16x16xf32>
+        tt.return
+      }
+    }
+    """
+    )
+
+    filecheck(correct, ctx.module)

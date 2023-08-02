@@ -23,7 +23,7 @@ def test_trampoline_with_triton(ctx: MLIRContext):
     correct = """\
     module {
       tt.func @kernel_0123() {
-        %c64_i64 = arith.constant 64 : i64
+        %c64_i32 = arith.constant 64 : i32
         %0 = tt.get_program_id x : i32
         "air.channel"() {sym_name = "bob"} : () -> ()
         tt.return

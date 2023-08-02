@@ -6,7 +6,7 @@ license = { file = "LICENSE" }
 dependencies = [
     "triton-mlir",
     "numpy",
-    "mlir-python-bindings==17.0.0.2023.7.27.14+70aca7b1",
+    "mlir-python-utils @ git+https://github.com/makslevental/mlir-python-utils@tensor_indexing",
     "mlir-native-tools"
 ]
 [project.optional-dependencies] # Optional
