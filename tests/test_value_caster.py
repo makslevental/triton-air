@@ -14,7 +14,7 @@ pytest.mark.usefixtures("ctx")
 
 def test_value_caster(ctx: MLIRContext):
     t = empty((10, 10), f32_t)
-    assert repr(t) == "TritonTensor(%0, tensor<10x10xf32>)"
+    assert repr(t) == "Tensor(%0, tensor<10x10xf32>)"
 
     t = empty((10, 10), p_f32_t)
     assert repr(t) == "TritonTensor(%1, tensor<10x10x!tt.ptr<f32>>)"
