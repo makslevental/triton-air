@@ -17,7 +17,6 @@ from mlir_utils.util import find_ops
 from triton_mlir_bindings.runtime import get_unranked_memref_descriptor
 
 from triton_air.dialects.ext import triton as tl
-from triton_air.types import p_f32_t, float32
 
 # needed since the fix isn't defined here nor conftest.py
 pytest.mark.usefixtures("ctx")
@@ -25,6 +24,8 @@ pytest.mark.usefixtures("backend")
 
 
 def test_vadd_lower_to_linalg(ctx: MLIRContext, backend: LLVMJITBackend):
+    from triton_air.types import p_f32_t
+
     BLOCK_SIZE = 64
 
     @tl.jit
@@ -94,6 +95,8 @@ def test_vadd_lower_to_linalg(ctx: MLIRContext, backend: LLVMJITBackend):
 
 
 def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
+    from triton_air.types import p_f32_t
+
     BLOCK_SIZE = 64
 
     @tl.jit
@@ -165,25 +168,25 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
         %17 = llvm.sext %arg6 : i32 to i64
         %18 = llvm.intr.smin(%16, %17)  : (i64, i64) -> i64
         %19 = llvm.sub %18, %7  : i64
-        %20 = llvm.insertvalue %9, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %21 = llvm.insertvalue %11, %20[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %22 = llvm.insertvalue %7, %21[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %23 = llvm.insertvalue %19, %22[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %24 = llvm.insertvalue %3, %23[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %25 = llvm.insertvalue %15, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %26 = llvm.insertvalue %15, %25[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %27 = llvm.insertvalue %5, %26[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %28 = llvm.insertvalue %19, %27[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %29 = llvm.insertvalue %3, %28[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
+        %20 = llvm.insertvalue %9, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %21 = llvm.insertvalue %11, %20[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %22 = llvm.insertvalue %7, %21[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %23 = llvm.insertvalue %19, %22[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %24 = llvm.insertvalue %3, %23[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %25 = llvm.insertvalue %15, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %26 = llvm.insertvalue %15, %25[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %27 = llvm.insertvalue %5, %26[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %28 = llvm.insertvalue %19, %27[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %29 = llvm.insertvalue %3, %28[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
         %30 = llvm.intr.stacksave : !llvm.ptr
         %31 = llvm.alloca %3 x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
         llvm.store %24, %31 : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
         %32 = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
-        %33 = llvm.insertvalue %1, %32[0] : !llvm.struct<(i64, ptr)> 
-        %34 = llvm.insertvalue %31, %33[1] : !llvm.struct<(i64, ptr)> 
+        %33 = llvm.insertvalue %1, %32[0] : !llvm.struct<(i64, ptr)>
+        %34 = llvm.insertvalue %31, %33[1] : !llvm.struct<(i64, ptr)>
         %35 = llvm.alloca %3 x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
         llvm.store %29, %35 : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-        %36 = llvm.insertvalue %35, %33[1] : !llvm.struct<(i64, ptr)> 
+        %36 = llvm.insertvalue %35, %33[1] : !llvm.struct<(i64, ptr)>
         %37 = llvm.alloca %3 x !llvm.struct<(i64, ptr)> : (i64) -> !llvm.ptr
         llvm.store %34, %37 : !llvm.struct<(i64, ptr)>, !llvm.ptr
         %38 = llvm.alloca %3 x !llvm.struct<(i64, ptr)> : (i64) -> !llvm.ptr
@@ -194,23 +197,23 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
         %40 = llvm.getelementptr %arg3[1] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
         %41 = llvm.load %40 : !llvm.ptr -> !llvm.ptr
         %42 = llvm.call @malloc(%14) : (i64) -> !llvm.ptr
-        %43 = llvm.insertvalue %39, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %44 = llvm.insertvalue %41, %43[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %45 = llvm.insertvalue %7, %44[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %46 = llvm.insertvalue %19, %45[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %47 = llvm.insertvalue %3, %46[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %48 = llvm.insertvalue %42, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %49 = llvm.insertvalue %42, %48[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %50 = llvm.insertvalue %5, %49[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %51 = llvm.insertvalue %19, %50[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %52 = llvm.insertvalue %3, %51[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
+        %43 = llvm.insertvalue %39, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %44 = llvm.insertvalue %41, %43[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %45 = llvm.insertvalue %7, %44[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %46 = llvm.insertvalue %19, %45[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %47 = llvm.insertvalue %3, %46[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %48 = llvm.insertvalue %42, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %49 = llvm.insertvalue %42, %48[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %50 = llvm.insertvalue %5, %49[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %51 = llvm.insertvalue %19, %50[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %52 = llvm.insertvalue %3, %51[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
         %53 = llvm.intr.stacksave : !llvm.ptr
         %54 = llvm.alloca %3 x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
         llvm.store %47, %54 : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-        %55 = llvm.insertvalue %54, %33[1] : !llvm.struct<(i64, ptr)> 
+        %55 = llvm.insertvalue %54, %33[1] : !llvm.struct<(i64, ptr)>
         %56 = llvm.alloca %3 x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
         llvm.store %52, %56 : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-        %57 = llvm.insertvalue %56, %33[1] : !llvm.struct<(i64, ptr)> 
+        %57 = llvm.insertvalue %56, %33[1] : !llvm.struct<(i64, ptr)>
         %58 = llvm.alloca %3 x !llvm.struct<(i64, ptr)> : (i64) -> !llvm.ptr
         llvm.store %55, %58 : !llvm.struct<(i64, ptr)>, !llvm.ptr
         %59 = llvm.alloca %3 x !llvm.struct<(i64, ptr)> : (i64) -> !llvm.ptr
@@ -245,23 +248,23 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
         %77 = llvm.load %arg5 : !llvm.ptr -> !llvm.ptr
         %78 = llvm.getelementptr %arg5[1] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
         %79 = llvm.load %78 : !llvm.ptr -> !llvm.ptr
-        %80 = llvm.insertvalue %61, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %81 = llvm.insertvalue %67, %80[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %82 = llvm.insertvalue %5, %81[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %83 = llvm.insertvalue %19, %82[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %84 = llvm.insertvalue %3, %83[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %85 = llvm.insertvalue %77, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %86 = llvm.insertvalue %79, %85[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %87 = llvm.insertvalue %7, %86[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %88 = llvm.insertvalue %19, %87[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
-        %89 = llvm.insertvalue %3, %88[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> 
+        %80 = llvm.insertvalue %61, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %81 = llvm.insertvalue %67, %80[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %82 = llvm.insertvalue %5, %81[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %83 = llvm.insertvalue %19, %82[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %84 = llvm.insertvalue %3, %83[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %85 = llvm.insertvalue %77, %8[0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %86 = llvm.insertvalue %79, %85[1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %87 = llvm.insertvalue %7, %86[2] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %88 = llvm.insertvalue %19, %87[3, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+        %89 = llvm.insertvalue %3, %88[4, 0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
         %90 = llvm.intr.stacksave : !llvm.ptr
         %91 = llvm.alloca %3 x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
         llvm.store %84, %91 : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-        %92 = llvm.insertvalue %91, %33[1] : !llvm.struct<(i64, ptr)> 
+        %92 = llvm.insertvalue %91, %33[1] : !llvm.struct<(i64, ptr)>
         %93 = llvm.alloca %3 x !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> : (i64) -> !llvm.ptr
         llvm.store %89, %93 : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>, !llvm.ptr
-        %94 = llvm.insertvalue %93, %33[1] : !llvm.struct<(i64, ptr)> 
+        %94 = llvm.insertvalue %93, %33[1] : !llvm.struct<(i64, ptr)>
         %95 = llvm.alloca %3 x !llvm.struct<(i64, ptr)> : (i64) -> !llvm.ptr
         llvm.store %92, %95 : !llvm.struct<(i64, ptr)>, !llvm.ptr
         %96 = llvm.alloca %3 x !llvm.struct<(i64, ptr)> : (i64) -> !llvm.ptr
@@ -273,14 +276,14 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
       }
       llvm.func @_mlir_ciface_vadd(%arg0: !llvm.ptr, %arg1: !llvm.ptr, %arg2: !llvm.ptr, %arg3: i32, %arg4: i32, %arg5: i32, %arg6: i32) attributes {llvm.emit_c_interface} {
         %0 = llvm.load %arg0 : !llvm.ptr -> !llvm.struct<(i64, ptr)>
-        %1 = llvm.extractvalue %0[0] : !llvm.struct<(i64, ptr)> 
-        %2 = llvm.extractvalue %0[1] : !llvm.struct<(i64, ptr)> 
+        %1 = llvm.extractvalue %0[0] : !llvm.struct<(i64, ptr)>
+        %2 = llvm.extractvalue %0[1] : !llvm.struct<(i64, ptr)>
         %3 = llvm.load %arg1 : !llvm.ptr -> !llvm.struct<(i64, ptr)>
-        %4 = llvm.extractvalue %3[0] : !llvm.struct<(i64, ptr)> 
-        %5 = llvm.extractvalue %3[1] : !llvm.struct<(i64, ptr)> 
+        %4 = llvm.extractvalue %3[0] : !llvm.struct<(i64, ptr)>
+        %5 = llvm.extractvalue %3[1] : !llvm.struct<(i64, ptr)>
         %6 = llvm.load %arg2 : !llvm.ptr -> !llvm.struct<(i64, ptr)>
-        %7 = llvm.extractvalue %6[0] : !llvm.struct<(i64, ptr)> 
-        %8 = llvm.extractvalue %6[1] : !llvm.struct<(i64, ptr)> 
+        %7 = llvm.extractvalue %6[0] : !llvm.struct<(i64, ptr)>
+        %8 = llvm.extractvalue %6[1] : !llvm.struct<(i64, ptr)>
         llvm.call @vadd(%1, %2, %4, %5, %7, %8, %arg3, %arg4, %arg5, %arg6) : (i64, !llvm.ptr, i64, !llvm.ptr, i64, !llvm.ptr, i32, i32, i32, i32) -> ()
         llvm.return
       }
@@ -298,7 +301,10 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
     B = ctypes.pointer(ctypes.pointer(get_unranked_memref_descriptor(b)))
     C = ctypes.pointer(ctypes.pointer(get_unranked_memref_descriptor(c)))
     n_elements_ = ctypes.c_int(n_elements)
-    zero = ctypes.c_int()
+    # all zero
+    launch_grid_x = ctypes.c_int()
+    launch_grid_y = ctypes.c_int()
+    launch_grid_z = ctypes.c_int()
 
     invoker = backend.load(module)
     invoker.ee.invoke(
@@ -307,14 +313,16 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
         B,
         C,
         ctypes.byref(n_elements_),
-        ctypes.byref(zero),  # x dim idx
-        ctypes.byref(zero),  # y dim idx
-        ctypes.byref(zero),  # z dim idx
+        ctypes.byref(launch_grid_x),
+        ctypes.byref(launch_grid_y),
+        ctypes.byref(launch_grid_z),
     )
     assert np.array_equal(a + b, c)
 
 
 def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
+    from triton_air.types import p_f32_t, float32
+
     BLOCK_SIZE_M = 16
     BLOCK_SIZE_N = 16
     BLOCK_SIZE_K = 16
@@ -341,12 +349,15 @@ def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
         num_pid_in_group = GROUP_SIZE_M * num_pid_n
         group_id = pid // num_pid_in_group
         first_pid_m = group_id * GROUP_SIZE_M
+        # TODO(max): min isn't doing anything here
         group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
         pid_m = first_pid_m + (pid % group_size_m)
         pid_n = (pid % num_pid_in_group) // group_size_m
 
-        offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
-        offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)) % N
+        # offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
+        # offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)) % N
+        offs_am = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+        offs_bn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
         offs_k = tl.arange(0, BLOCK_SIZE_K)
         a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
         b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
@@ -374,7 +385,6 @@ def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
         tl.store(c_ptrs, c, mask=c_mask)
 
     matmul_kernel.emit()
-
     module = backend.compile(
         ctx.module,
         kernel_name="matmul_kernel",
@@ -383,4 +393,282 @@ def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
         generate_return_consumer=False,
     )
 
-    print(module)
+    correct = dedent(
+        """\
+    #map = affine_map<(d0, d1) -> (d0, d1)>
+    module {
+      func.func @matmul_kernel(%arg0: memref<*xf32>, %arg1: memref<*xf32>, %arg2: memref<*xf32>, %arg3: i32, %arg4: i32, %arg5: i32, %arg6: i32, %arg7: i32, %arg8: i32, %arg9: i32, %arg10: i32, %arg11: i32, %arg12: i32, %arg13: i32, %arg14: i32) {
+        %c16_i32 = arith.constant 16 : i32
+        %c2_i32 = arith.constant 2 : i32
+        %c16 = arith.constant 16 : index
+        %c1 = arith.constant 1 : index
+        %c0 = arith.constant 0 : index
+        %cst = arith.constant 0.000000e+00 : f32
+        %0 = tensor.empty() : tensor<16x16xf32>
+        %1 = linalg.fill ins(%cst : f32) outs(%0 : tensor<16x16xf32>) -> tensor<16x16xf32>
+        %2 = arith.divsi %arg4, %c16_i32 : i32
+        %3 = arith.muli %2, %c2_i32 : i32
+        %4 = arith.floordivsi %arg12, %3 : i32
+        %5 = arith.muli %4, %c2_i32 : i32
+        %6 = arith.remsi %arg12, %c2_i32 : i32
+        %7 = arith.addi %5, %6 : i32
+        %8 = arith.remsi %arg12, %3 : i32
+        %9 = arith.floordivsi %8, %c2_i32 : i32
+        %10 = arith.muli %7, %c16_i32 : i32
+        %11 = arith.muli %9, %c16_i32 : i32
+        %12 = arith.index_cast %10 : i32 to index
+        %13 = arith.index_cast %arg6 : i32 to index
+        %14 = arith.muli %12, %13 : index
+        %15 = arith.index_cast %arg7 : i32 to index
+        %16 = arith.index_cast %arg8 : i32 to index
+        %17 = arith.index_cast %11 : i32 to index
+        %18 = arith.index_cast %arg9 : i32 to index
+        %19 = arith.muli %17, %18 : index
+        %20 = arith.divsi %arg5, %c16_i32 : i32
+        %21 = arith.index_cast %20 : i32 to index
+        %reinterpret_cast = memref.reinterpret_cast %arg0 to offset: [%14], sizes: [16, 16], strides: [%13, %15] : memref<*xf32> to memref<16x16xf32, strided<[?, ?], offset: ?>>
+        %reinterpret_cast_0 = memref.reinterpret_cast %arg1 to offset: [%19], sizes: [16, 16], strides: [%16, %18] : memref<*xf32> to memref<16x16xf32, strided<[?, ?], offset: ?>>
+        %22:5 = scf.for %arg15 = %c0 to %21 step %c1 iter_args(%arg16 = %1, %arg17 = %14, %arg18 = %c0, %arg19 = %19, %arg20 = %c0) -> (tensor<16x16xf32>, index, index, index, index) {
+          %44 = arith.muli %arg15, %c16 : index
+          %45 = arith.index_cast %44 : index to i32
+          %46 = arith.subi %arg5, %45 : i32
+          %alloc = memref.alloc() : memref<16x16xf32>
+          %47 = arith.index_cast %46 : i32 to index
+          %48 = arith.minsi %47, %c16 : index
+          %subview_2 = memref.subview %reinterpret_cast[0, 0] [16, %48] [1, 1] : memref<16x16xf32, strided<[?, ?], offset: ?>> to memref<16x?xf32, strided<[?, ?], offset: ?>>
+          %subview_3 = memref.subview %alloc[0, 0] [16, %48] [1, 1] : memref<16x16xf32> to memref<16x?xf32, strided<[16, 1]>>
+          %49 = arith.cmpi slt, %48, %c16 : index
+          scf.if %49 {
+            linalg.fill ins(%cst : f32) outs(%alloc : memref<16x16xf32>)
+          }
+          memref.copy %subview_2, %subview_3 : memref<16x?xf32, strided<[?, ?], offset: ?>> to memref<16x?xf32, strided<[16, 1]>>
+          %50 = bufferization.to_tensor %alloc restrict writable : memref<16x16xf32>
+          %51 = arith.muli %arg15, %c16 : index
+          %52 = arith.index_cast %51 : index to i32
+          %53 = arith.subi %arg5, %52 : i32
+          %alloc_4 = memref.alloc() : memref<16x16xf32>
+          %54 = arith.index_cast %53 : i32 to index
+          %55 = arith.minsi %54, %c16 : index
+          %subview_5 = memref.subview %reinterpret_cast_0[0, 0] [%55, 16] [1, 1] : memref<16x16xf32, strided<[?, ?], offset: ?>> to memref<?x16xf32, strided<[?, ?], offset: ?>>
+          %subview_6 = memref.subview %alloc_4[0, 0] [%55, 16] [1, 1] : memref<16x16xf32> to memref<?x16xf32, strided<[16, 1]>>
+          %56 = arith.cmpi slt, %55, %c16 : index
+          scf.if %56 {
+            linalg.fill ins(%cst : f32) outs(%alloc_4 : memref<16x16xf32>)
+          }
+          memref.copy %subview_5, %subview_6 : memref<?x16xf32, strided<[?, ?], offset: ?>> to memref<?x16xf32, strided<[16, 1]>>
+          %57 = bufferization.to_tensor %alloc_4 restrict writable : memref<16x16xf32>
+          %58 = tensor.empty() : tensor<16x16xf32>
+          %59 = linalg.matmul ins(%50, %57 : tensor<16x16xf32>, tensor<16x16xf32>) outs(%58 : tensor<16x16xf32>) -> tensor<16x16xf32>
+          %60 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel"]} ins(%59, %1 : tensor<16x16xf32>, tensor<16x16xf32>) outs(%59 : tensor<16x16xf32>) {
+          ^bb0(%in: f32, %in_7: f32, %out: f32):
+            %70 = arith.addf %in, %in_7 : f32
+            linalg.yield %70 : f32
+          } -> tensor<16x16xf32>
+          %61 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel"]} ins(%arg16, %60 : tensor<16x16xf32>, tensor<16x16xf32>) outs(%arg16 : tensor<16x16xf32>) {
+          ^bb0(%in: f32, %in_7: f32, %out: f32):
+            %70 = arith.addf %in, %in_7 : f32
+            linalg.yield %70 : f32
+          } -> tensor<16x16xf32>
+          %62 = arith.muli %arg7, %c16_i32 : i32
+          %63 = arith.index_cast %62 : i32 to index
+          %64 = arith.addi %arg17, %63 : index
+          %65 = arith.addi %64, %arg18 : index
+          %66 = arith.muli %arg8, %c16_i32 : i32
+          %67 = arith.index_cast %66 : i32 to index
+          %68 = arith.addi %arg19, %67 : index
+          %69 = arith.addi %68, %arg20 : index
+          scf.yield %61, %65, %c0, %69, %c0 : tensor<16x16xf32>, index, index, index, index
+        }
+        %23 = arith.muli %7, %c16_i32 : i32
+        %24 = arith.muli %9, %c16_i32 : i32
+        %25 = arith.index_cast %arg10 : i32 to index
+        %26 = arith.index_cast %23 : i32 to index
+        %27 = arith.muli %26, %25 : index
+        %28 = arith.index_cast %arg11 : i32 to index
+        %29 = arith.index_cast %24 : i32 to index
+        %30 = arith.muli %29, %28 : index
+        %31 = arith.addi %27, %30 : index
+        %reinterpret_cast_1 = memref.reinterpret_cast %arg2 to offset: [%31], sizes: [16, 16], strides: [%25, %28] : memref<*xf32> to memref<16x16xf32, strided<[?, ?], offset: ?>>
+        %32 = arith.index_cast %23 : i32 to index
+        %33 = arith.addi %32, %c16 : index
+        %34 = arith.index_cast %arg3 : i32 to index
+        %35 = arith.minsi %33, %34 : index
+        %36 = arith.subi %35, %32 : index
+        %37 = arith.index_cast %24 : i32 to index
+        %38 = arith.addi %37, %c16 : index
+        %39 = arith.index_cast %arg4 : i32 to index
+        %40 = arith.minsi %38, %39 : index
+        %41 = arith.subi %40, %37 : index
+        %42 = arith.minsi %36, %c16 : index
+        %43 = arith.minsi %41, %c16 : index
+        %extracted_slice = tensor.extract_slice %22#0[0, 0] [%42, %43] [1, 1] : tensor<16x16xf32> to tensor<?x?xf32>
+        %subview = memref.subview %reinterpret_cast_1[0, 0] [%42, %43] [1, 1] : memref<16x16xf32, strided<[?, ?], offset: ?>> to memref<?x?xf32, strided<[?, ?], offset: ?>>
+        memref.tensor_store %extracted_slice, %subview : memref<?x?xf32, strided<[?, ?], offset: ?>>
+        return
+      }
+    }
+    """
+    )
+
+    filecheck(correct, module)
+
+
+def _test_matmul_run(ctx: MLIRContext, backend: LLVMJITBackend):
+    from triton_air.types import p_f64_t, float64
+
+    D = 8
+    BLOCK_SIZE_M = D
+    BLOCK_SIZE_K = D
+    BLOCK_SIZE_N = D
+    GROUP_SIZE_M = 1
+
+    @tl.jit
+    def matmul_kernel(
+        a_ptr: p_f64_t,
+        b_ptr: p_f64_t,
+        c_ptr: p_f64_t,
+        M: i32_t,
+        N: i32_t,
+        K: i32_t,
+        stride_am: i32_t,
+        stride_ak: i32_t,
+        stride_bk: i32_t,
+        stride_bn: i32_t,
+        stride_cm: i32_t,
+        stride_cn: i32_t,
+    ):
+        pid = tl.program_id(axis="x")
+        num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
+        num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
+        num_pid_in_group = GROUP_SIZE_M * num_pid_n
+        group_id = pid // num_pid_in_group
+        first_pid_m = group_id * GROUP_SIZE_M
+        group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
+        pid_m = first_pid_m + (pid % group_size_m)
+        pid_n = (pid % num_pid_in_group) // group_size_m
+
+        # offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
+        # offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)) % N
+        offs_am = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+        offs_bn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+        offs_k = tl.arange(0, BLOCK_SIZE_K)
+        a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
+        b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
+
+        accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=float64)
+        acc = accumulator
+
+        for k, (acc, aptrs, bptrs) in range_(
+            0, tl.cdiv(K, BLOCK_SIZE_K), iter_args=[accumulator, a_ptrs, b_ptrs]
+        ):
+            mask = offs_k[None, :] < K - k * BLOCK_SIZE_K
+            a = tl.load(a_ptrs, mask=mask, other=0.0)
+            mask = offs_k[:, None] < K - k * BLOCK_SIZE_K
+            b = tl.load(b_ptrs, mask=mask, other=0.0)
+            # TODO(max): the problem here is the _update_frame_vars upstream
+            acc_next = acc + tl.dot(a, b)
+            aptrs_next = aptrs + BLOCK_SIZE_K * stride_ak
+            bptrs_next = bptrs + BLOCK_SIZE_K * stride_bk
+            yield_(acc_next, aptrs_next, bptrs_next)
+
+        c = acc
+
+        offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+        offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+        c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
+        c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
+        tl.store(c_ptrs, c, mask=c_mask)
+
+    matmul_kernel.emit()
+    module = backend.compile(
+        ctx.module,
+        kernel_name="matmul_kernel",
+        pipeline=Pipeline().add_pass("triton-to-linalg"),
+        generate_kernel_wrapper=False,
+        generate_return_consumer=False,
+    )
+
+    tensor_store = find_ops(
+        module.operation,
+        lambda op: op.operation.name == "memref.tensor_store",
+        single=True,
+    )
+    memref = to_memref(tensor_store.memref.type, tensor_store.tensor)
+    memref.owner.move_after(tensor_store)
+    c = copy(memref, tensor_store.memref)
+    c.move_after(memref.owner)
+    tensor_store.operation.erase()
+
+    module = backend.compile(
+        module,
+        kernel_name="matmul_kernel",
+        pipeline=Pipeline()
+        .bufferize()
+        .Func(
+            convert_linalg_to_loops()
+            .buffer_loop_hoisting()
+            .convert_bufferization_to_memref()
+        )
+        .lower_to_llvm(),
+        generate_kernel_wrapper=False,
+        generate_return_consumer=False,
+    )
+
+    M = D
+    K = D
+    N = D
+
+    stride_am = M
+    stride_ak = 1
+    stride_bk = K
+    stride_bn = 1
+    stride_cm = M
+    stride_cn = 1
+
+    a = np.ones((M, K)).astype(np.float64)
+    b = np.ones((K, N)).astype(np.float64)
+    c = np.zeros((M, N)).astype(np.float64)
+
+    A = ctypes.pointer(ctypes.pointer(get_unranked_memref_descriptor(a)))
+    B = ctypes.pointer(ctypes.pointer(get_unranked_memref_descriptor(b)))
+    C = ctypes.pointer(ctypes.pointer(get_unranked_memref_descriptor(c)))
+
+    M_ = ctypes.c_int(M)
+    K_ = ctypes.c_int(K)
+    N_ = ctypes.c_int(N)
+
+    stride_am_ = ctypes.c_int(stride_am)
+    stride_ak_ = ctypes.c_int(stride_ak)
+    stride_bk_ = ctypes.c_int(stride_bk)
+    stride_bn_ = ctypes.c_int(stride_bn)
+    stride_cm_ = ctypes.c_int(stride_cm)
+    stride_cn_ = ctypes.c_int(stride_cn)
+
+    launch_grid_x = ctypes.c_int()
+    launch_grid_y = ctypes.c_int()
+    launch_grid_z = ctypes.c_int()
+
+    invoker = backend.load(module)
+    assert len(c.nonzero())
+    invoker.ee.invoke(
+        "matmul_kernel",
+        A,
+        B,
+        C,
+        ctypes.byref(M_),
+        ctypes.byref(K_),
+        ctypes.byref(N_),
+        ctypes.byref(stride_am_),
+        ctypes.byref(stride_ak_),
+        ctypes.byref(stride_bk_),
+        ctypes.byref(stride_bn_),
+        ctypes.byref(stride_cm_),
+        ctypes.byref(stride_cn_),
+        ctypes.byref(launch_grid_x),
+        ctypes.byref(launch_grid_y),
+        ctypes.byref(launch_grid_z),
+    )
+    r = a @ b
+    assert len(r.nonzero()) > 0
+    assert len(c.nonzero()) > 0
+    assert np.allclose(r, c)

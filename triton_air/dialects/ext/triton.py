@@ -13,7 +13,8 @@ from mlir_utils.util import (
     maybe_cast,
     get_result_or_results,
 )
-from triton_mlir_bindings._mlir_libs._mlir.ir import AttrBuilder
+from triton_mlir_bindings._mlir_libs._mlir.ir import AttrBuilder, ShapedType
+from triton_mlir_bindings.dialects._arith_ops_ext import _is_integer_like_type
 from triton_mlir_bindings.dialects._ods_common import (
     get_op_result_or_value,
     get_default_loc_context,
@@ -179,20 +180,6 @@ def broadcast(shape: list[int], src: Tensor, *, loc=None, ip=None):
     )
 
 
-def addptr(ptr: "TritonTensor", offset: Value | int, *, loc=None, ip=None):
-    if loc is None:
-        loc = get_user_code_loc()
-    result_type = ptr.type
-    if isinstance(offset, int):
-        offset = constant(offset, type=get_ptr_type(ptr.type))
-    if isinstance(offset, Scalar):
-        assert ptr.has_static_shape()
-        offset = splat(offset, ptr.shape)
-    if ptr.shape != offset.shape:
-        offset = broadcast(ptr.shape, offset, loc=loc, ip=ip)
-    return TritonTensor(triton.addptr(result_type, ptr, offset, loc=loc, ip=ip))
-
-
 class ExpandDimsOp(triton.ExpandDimsOp):
     OPERATION_NAME = "tt.expand_dims"
 
@@ -298,11 +285,14 @@ def _extract_slice(
 
 
 class TritonTensor(Tensor):
-    def coerce(self, other) -> tuple["Tensor", "Tensor"]:
-        if not (isinstance(other, TritonPointer) or isinstance(other, Tensor)):
+    def coerce(self, other) -> tuple["TritonTensor", "TritonTensor"]:
+        if not (
+            isinstance(other, (TritonPointer, TritonScalar))
+            or isinstance(other, Tensor)
+        ):
             self, other = super().coerce(other)
 
-        if isinstance(other, TritonPointer):
+        if isinstance(other, (TritonPointer, TritonScalar)):
             assert self.has_static_shape()
             other = splat(other, self.shape)
 
@@ -314,6 +304,8 @@ class TritonTensor(Tensor):
     def __add__(self, other: Tensor | Value, *, loc=None):
         if loc is None:
             loc = get_user_code_loc()
+        if isinstance(other, Tensor) and self.shape != other.shape:
+            self, other = broadcast_binary(self, other)
         if is_ptr_t(self):
             return addptr(self, other, loc=loc)
 
@@ -362,24 +354,24 @@ class TritonTensor(Tensor):
 
 
 # it doesn't matter which p_f* is used here, the typeid is the same for all
-@register_value_caster(IntegerType.static_typeid, 0)
 @register_value_caster(p_f16_t.typeid)
 class TritonPointer(Scalar):
     def __add__(self, other: Scalar | Tensor, *, loc=None):
         if isinstance(other, Tensor):
-            # broadcast and wrap in TritonTensor for the subclassed __add__
-            other, self = map(TritonTensor, other.coerce(self))
-            return self + other
+            assert _is_integer_like_type(other.dtype)
+            return addptr(self, other)
         else:
             return super().__add__(other)
 
-    def __mul__(self, other: Scalar | Tensor, *, loc=None):
+
+@register_value_caster(IntegerType.static_typeid, 0)
+class TritonScalar(Scalar):
+    def coerce(self, other) -> tuple["Tensor", "Tensor"]:
         if isinstance(other, Tensor):
-            # broadcast and wrap in TritonTensor for the subclassed __mul__
-            other, self = map(TritonTensor, other.coerce(self))
-            return self * other
-        else:
-            return super().__mul__(other)
+            assert other.has_static_shape()
+            return splat(self, other.shape), other
+
+        return super().coerce(other)
 
 
 @register_value_caster(RankedTensorType.static_typeid, 0)
@@ -391,13 +383,13 @@ def maybe_cast_triton_tensor(val: Value):
 def program_id(axis, *, loc=None, ip=None):
     if loc is None:
         loc = get_user_code_loc()
-    return TritonPointer(triton.get_program_id(axis, loc=loc, ip=ip))
+    return TritonScalar(triton.get_program_id(axis, loc=loc, ip=ip))
 
 
 def num_programs(axis, *, loc=None, ip=None):
     if loc is None:
         loc = get_user_code_loc()
-    return TritonPointer(triton.get_num_programs(axis, loc=loc, ip=ip))
+    return TritonScalar(triton.get_num_programs(axis, loc=loc, ip=ip))
 
 
 def cdiv(lhs, rhs, *, loc=None, ip=None):
@@ -419,8 +411,6 @@ def load(
 ):
     if loc is None:
         loc = get_user_code_loc()
-    if not RankedTensorType.isinstance(ptr.type):
-        raise ValueError(f"{ptr=} must be RankedTensorType")
     ptr_type = RankedTensorType(ptr.type)
     if ptr_type.has_static_shape:
         result_type = RankedTensorType.get(ptr_type.shape, get_ptr_type(ptr.type))
@@ -493,7 +483,7 @@ def dot(
         loc = get_user_code_loc()
 
     if c is None:
-        c = constant(1.0, type=a.dtype)
+        c = constant(0, type=a.dtype)
     if isinstance(c, Scalar):
         assert a.has_static_shape()
         c = splat(c, a.shape)
@@ -506,3 +496,30 @@ def dot(
         loc=loc,
         ip=ip,
     )
+
+
+def addptr(
+    ptr: TritonPointer | TritonTensor,
+    offset: Tensor | TritonTensor | int,
+    *,
+    loc=None,
+    ip=None,
+):
+    if loc is None:
+        loc = get_user_code_loc()
+    if isinstance(offset, int):
+        offset = constant(offset, type=get_ptr_type(ptr.type))
+    if isinstance(offset, (Tensor, TritonTensor)) and not isinstance(
+        ptr, (Tensor, TritonTensor)
+    ):
+        assert offset.has_static_shape()
+        ptr = splat(ptr, offset.shape)
+    if isinstance(offset, Scalar):
+        assert ptr.has_static_shape()
+        offset = splat(offset, ptr.shape)
+    if ShapedType.isinstance(ptr.type) and ShapedType.isinstance(offset.type):
+        assert (
+            ptr.shape == offset.shape
+        ), f"'tt.addptr' op all non-scalar operands/results must have the same shape and base type: {ptr=} {offset=}"
+    result_type = ptr.type
+    return TritonTensor(triton.addptr(result_type, ptr, offset, loc=loc, ip=ip))

@@ -1,24 +1,24 @@
 import pytest
-from mlir_utils.dialects.ext.tensor import Tensor, empty
+from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import MLIRContext, mlir_ctx as ctx
-from mlir_utils.types import f32_t, tensor_t
 from triton_mlir_bindings.ir import Type
-
-from triton_air.types import (
-    ptr_t,
-    get_ptr_type,
-    p_f16_t,
-    p_f64_t,
-    p_bf16_t,
-    is_ptr_t,
-)
 
 pytest.mark.usefixtures("ctx")
 
 
 def test_ptr_type(ctx: MLIRContext):
+    from mlir_utils.types import f32_t
+    from triton_air.types import (
+        ptr_t,
+        get_ptr_type,
+        p_f16_t,
+        p_f64_t,
+        p_bf16_t,
+        is_ptr_t,
+    )
+
     p_f32_t = ptr_t(f32_t)
     assert f32_t.isinstance(get_ptr_type(p_f32_t))
     assert (
@@ -40,6 +40,12 @@ def test_ptr_type(ctx: MLIRContext):
 
 
 def test_tensor_ptrs(ctx: MLIRContext):
+    from mlir_utils.types import f32_t, tensor_t
+    from triton_air.types import (
+        ptr_t,
+        is_ptr_t,
+    )
+
     p_f32_t = ptr_t(f32_t)
     t = empty((10, 10), f32_t)
     t_ptr_t = ptr_t(t)

@@ -1,14 +1,6 @@
 from textwrap import dedent
 
 import pytest
-
-# noinspection PyUnresolvedReferences
-from triton_mlir_bindings.dialects import triton as triton_dialect
-
-from triton_air.dialects.ext import triton
-from triton_air.dialects.ext.triton import splat, arange, addptr, load, store
-from triton_air.types import p_f32_t
-
 from mlir_utils.dialects import triton as tl
 
 # this needs to be below the triton_mlir_bindings
@@ -16,12 +8,20 @@ from mlir_utils.dialects.ext import arith
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import filecheck, MLIRContext, mlir_ctx as ctx
-from mlir_utils.types import i32_t
+
+# noinspection PyUnresolvedReferences
+from triton_mlir_bindings.dialects import triton as triton_dialect
+
+from triton_air.dialects.ext import triton
+from triton_air.dialects.ext.triton import splat, arange, addptr, load, store
 
 pytest.mark.usefixtures("ctx")
 
 
 def test_vadd(ctx: MLIRContext):
+    from mlir_utils.types import i32_t
+    from triton_air.types import p_f32_t
+
     @triton.jit
     def kernel_0123(arg0: p_f32_t, arg1: p_f32_t, arg2: p_f32_t, arg3: i32_t):
         v0 = tl.get_program_id(axis="x")

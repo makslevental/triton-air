@@ -3,7 +3,6 @@ from mlir_utils.dialects import triton as tt
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import filecheck, mlir_ctx as ctx
-from mlir_utils.types import i32_t
 from triton_mlir_bindings.dialects import (
     arith as arith_dialect,
 )
@@ -15,6 +14,8 @@ pytest.mark.usefixtures("ctx")
 
 
 def test_smoke(ctx):
+    from mlir_utils.types import i32_t
+
     air.channel("bob")
     c64 = arith_dialect.ConstantOp(i32_t, 64)
     correct = """\
