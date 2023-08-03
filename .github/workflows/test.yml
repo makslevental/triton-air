@@ -22,7 +22,7 @@ jobs:
       matrix:
         os: [
           ubuntu-22.04,
-#          macos-11,
+          macos-latest,
           windows-2022
         ]
 
@@ -38,9 +38,8 @@ jobs:
       - name: Install
         shell: bash
         run: |
-          export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/wheels/releases/expanded_assets/i
           pip install setuptools -U
-          pip install -e .[test]
+          pip install -e .[test] -f https://makslevental.github.io/wheels/
           if [ ${{ matrix.os }} == 'windows-2022' ]; then
             # configure-mlir-python-utils.exe -y triton_mlir_bindings
             pushd /tmp && python -m mlir_utils._configuration -y triton_mlir_bindings && popd
@@ -51,4 +50,4 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          pytest tests
+          pytest -s tests

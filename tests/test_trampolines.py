@@ -18,7 +18,7 @@ def test_trampoline_with_triton(ctx: MLIRContext):
         v0 = tl.get_program_id(axis="x")
         air.channel("bob")
 
-    kernel_0123()
+    kernel_0123.emit()
 
     correct = """\
     module {
@@ -28,7 +28,6 @@ def test_trampoline_with_triton(ctx: MLIRContext):
         "air.channel"() {sym_name = "bob"} : () -> ()
         tt.return
       }
-      tt.call @kernel_0123() : () -> ()
     }
     """
     ctx.module.operation.verify()
