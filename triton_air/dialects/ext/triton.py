@@ -1,14 +1,22 @@
 from typing import Optional, Sequence
 
+import mlir_utils.dialects.ext.tensor
 from mlir_utils.dialects import triton
-from mlir_utils.dialects.ext.arith import Scalar, constant
+from mlir_utils.dialects.ext.arith import Scalar, constant, _binary_op
 from mlir_utils.dialects.ext.func import FuncBase
-from mlir_utils.dialects.ext.tensor import Tensor, expand_dims
+from mlir_utils.dialects.ext.tensor import Tensor
 from mlir_utils.types import i32_t, tensor_t, f32_t
 from mlir_utils.util import (
     make_maybe_no_args_decorator,
     get_user_code_loc,
     register_value_caster,
+    maybe_cast,
+    get_result_or_results,
+)
+from triton_mlir_bindings._mlir_libs._mlir.ir import AttrBuilder
+from triton_mlir_bindings.dialects._ods_common import (
+    get_op_result_or_value,
+    get_default_loc_context,
 )
 from triton_mlir_bindings.dialects.triton import (
     FuncOp,
@@ -185,6 +193,50 @@ def addptr(ptr: "TritonTensor", offset: Value | int, *, loc=None, ip=None):
     return TritonTensor(triton.addptr(result_type, ptr, offset, loc=loc, ip=ip))
 
 
+class ExpandDimsOp(triton.ExpandDimsOp):
+    OPERATION_NAME = "tt.expand_dims"
+
+    _ODS_REGIONS = (0, True)
+
+    def __init__(self, src, axis, *, loc=None, ip=None):
+        operands = []
+        input_type = RankedTensorType(src.type)
+        input_shape = input_type.shape
+        input_shape.insert(axis, 1)
+        results = [RankedTensorType.get(input_shape, input_type.element_type)]
+        attributes = {}
+        regions = None
+        operands.append(get_op_result_or_value(src))
+        _ods_context = get_default_loc_context(loc)
+        attributes["axis"] = (
+            axis
+            if (
+                issubclass(type(axis), Attribute) or not AttrBuilder.contains("I32Attr")
+            )
+            else AttrBuilder.get("I32Attr")(axis, context=_ods_context)
+        )
+        _ods_successors = None
+        super(ExpandDimsOp.__base__, self).__init__(
+            self.build_generic(
+                attributes=attributes,
+                results=results,
+                operands=operands,
+                successors=_ods_successors,
+                regions=regions,
+                loc=loc,
+                ip=ip,
+            )
+        )
+
+
+def expand_dims(src: Value, axis, *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
+    return TritonTensor(
+        maybe_cast(get_result_or_results(ExpandDimsOp(src, axis, loc=loc, ip=ip)))
+    )
+
+
 def broadcast_binary(lhs: Tensor, rhs: Tensor) -> tuple[Tensor, Tensor]:
     lhs_shape = lhs.shape
     rhs_shape = rhs.shape
@@ -192,12 +244,12 @@ def broadcast_binary(lhs: Tensor, rhs: Tensor) -> tuple[Tensor, Tensor]:
     if len(lhs_shape) < len(rhs_shape):
         # Add new axes to lhs
         for dim in range(len(lhs_shape), len(rhs_shape)):
-            lhs = expand_dims(lhs.handle, [1] + lhs_shape)
+            lhs = expand_dims(lhs, 0)
             lhs_shape = lhs.shape
     elif len(rhs_shape) < len(lhs_shape):
         # Add new axes to rhs
         for dim in range(len(rhs_shape), len(lhs_shape)):
-            rhs = expand_dims(rhs.handle, [1] + rhs_shape)
+            rhs = expand_dims(rhs, 0)
             rhs_shape = rhs.shape
     assert len(rhs_shape) == len(lhs_shape)
 
@@ -219,7 +271,30 @@ def broadcast_binary(lhs: Tensor, rhs: Tensor) -> tuple[Tensor, Tensor]:
         lhs = broadcast(ret_shape, lhs)
     if rhs_shape != ret_shape:
         rhs = broadcast(ret_shape, rhs)
-    return lhs, rhs
+    return TritonTensor(lhs), TritonTensor(rhs)
+
+
+def _extract_slice(
+    ten: "TritonTensor",
+    idx,
+) -> "TritonTensor":
+    indexer = mlir_utils.dialects.ext.tensor._indices_to_indexer(idx, ten.shape)
+    out = ten
+
+    if indexer.is_full():
+        out = out
+    elif indexer.is_constant():
+        out = mlir_utils.dialects.ext.tensor.extract_slice(
+            out,
+            static_offsets=indexer.static_offsets(),
+            static_sizes=indexer.static_sizes(),
+            static_strides=indexer.static_strides(),
+        )
+    else:
+        raise ValueError(f"non-constant indices not supported {indexer}")
+
+    # This adds newaxis/None dimensions.
+    return TritonTensor(expand_dims(out, indexer.newaxis_dims))
 
 
 class TritonTensor(Tensor):
@@ -244,10 +319,41 @@ class TritonTensor(Tensor):
 
         return TritonTensor(super().__add__(other))
 
-    def __getitem__(self, mask):
+    def __lt__(self, other: Tensor | Value, *, loc=None):
+        if loc is None:
+            loc = get_user_code_loc()
+        return TritonTensor(
+            _binary_op(self, other, op="cmp", predicate="lt", signedness="s", loc=loc)
+        )
+
+    def __getitem__(self, idx):
         if is_ptr_t(self):
-            return load(self, mask)
-        return TritonTensor(super().__getitem__(mask))
+            return load(self, idx)
+        if not isinstance(idx, (tuple, list)):
+            idx = [idx]
+        if not self.has_rank():
+            raise ValueError("only ranked tensor slicing/indexing supported")
+
+        if idx is None:
+            return expand_dims(self, 0)
+        if idx == Ellipsis or idx == slice(None):
+            return self
+        if isinstance(idx, tuple) and all(i == slice(None) for i in idx):
+            return self
+        if isinstance(idx, tuple) and all(i == slice(None) or i is None for i in idx):
+            nones = [i for i, n in enumerate(idx) if n is None]
+            assert len(nones), f"only one newaxis supported {idx=}"
+            return expand_dims(self, nones[0])
+
+        idx = list((idx,) if isinstance(idx, int) else idx)
+        for i, d in enumerate(idx):
+            if isinstance(d, int):
+                idx[i] = constant(d, index=True)
+
+        if all(isinstance(d, Scalar) for d in idx) and len(idx) == len(self.shape):
+            raise ValueError("scalar indexing not supported")
+        else:
+            return _extract_slice(self, tuple(idx))
 
     def __setitem__(self, mask, value, *, loc=None):
         if loc is None:
