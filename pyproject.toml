@@ -10,7 +10,7 @@ dependencies = [
     "mlir-native-tools"
 ]
 [project.optional-dependencies] # Optional
-test = ["pytest"]
+test = ["pytest", "pytest-forked"]
 [build-system]
 # https://stackoverflow.com/a/69711730
 requires = ["setuptools>=64.0.0", "wheel", "black"]

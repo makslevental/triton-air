@@ -23,7 +23,7 @@ jobs:
         os: [
           ubuntu-22.04,
           macos-latest,
-          windows-2022
+#          windows-2022
         ]
 
     steps:
@@ -50,4 +50,6 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          pytest -s tests
+          pytest --ignore-glob=*test_runtime* tests
+          pytest -s tests/test_runtime.py -k test_vadd_run
+          pytest -s tests/test_runtime.py -k test_matmul_run

@@ -30,6 +30,10 @@ def ptr_t(type_or_val: Type | Value):
             return Type.parse(f"!tt.ptr<{type_}>")
 
 
+p_i16_t = ptr_t(i16_t)
+p_i32_t = ptr_t(i32_t)
+p_i64_t = ptr_t(i64_t)
+
 p_f16_t = ptr_t(f16_t)
 p_f32_t = ptr_t(f32_t)
 p_f64_t = ptr_t(f64_t)
