@@ -3,12 +3,14 @@ from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import MLIRContext, mlir_ctx as ctx
+from triton_mlir_bindings.dialects import triton as triton_dialect
 from triton_mlir_bindings.ir import Type
 
 pytest.mark.usefixtures("ctx")
 
 
 def test_ptr_type(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
     from mlir_utils.types import f32_t
     from triton_air.types import (
         ptr_t,
@@ -40,6 +42,7 @@ def test_ptr_type(ctx: MLIRContext):
 
 
 def test_tensor_ptrs(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
     from mlir_utils.types import f32_t, tensor_t
     from triton_air.types import (
         ptr_t,

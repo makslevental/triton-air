@@ -19,6 +19,7 @@ pytest.mark.usefixtures("ctx")
 
 
 def test_vadd(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
     from mlir_utils.types import i32_t
     from triton_air.types import p_f32_t
 

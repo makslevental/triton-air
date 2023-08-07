@@ -6,6 +6,7 @@ from mlir_utils.testing import filecheck, mlir_ctx as ctx
 from triton_mlir_bindings.dialects import (
     arith as arith_dialect,
 )
+from triton_mlir_bindings.dialects import triton as triton_dialect
 from triton_mlir_bindings.ir import IntegerType
 
 from triton_air.dialects import air
@@ -14,6 +15,7 @@ pytest.mark.usefixtures("ctx")
 
 
 def test_smoke(ctx):
+    triton_dialect.register_dialect(ctx.context)
     from mlir_utils.types import i32_t
 
     air.channel("bob")
@@ -29,6 +31,7 @@ def test_smoke(ctx):
 
 
 def test_smoke_with_triton(ctx):
+    triton_dialect.register_dialect(ctx.context)
     i32 = IntegerType.get_signless(32)
 
     @tt.FuncOp.from_py_func(results=[])
