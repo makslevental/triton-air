@@ -1,6 +1,7 @@
 import ctypes
 from textwrap import dedent
 
+import mlir_utils.types as T
 import numpy as np
 import pytest
 from mlir_utils.dialects.bufferization import to_memref
@@ -12,11 +13,12 @@ from mlir_utils.runtime.refbackend import LLVMJITBackend
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import mlir_ctx as ctx, filecheck, MLIRContext, backend
-from mlir_utils.types import i32_t
 from mlir_utils.util import find_ops
+from triton_mlir_bindings.dialects import triton as triton_dialect
 from triton_mlir_bindings.runtime import get_unranked_memref_descriptor
 
 from triton_air.dialects.ext import triton as tl
+from triton_air.dialects.ext.triton import register_triton_casters
 
 # needed since the fix isn't defined here nor conftest.py
 pytest.mark.usefixtures("ctx")
@@ -24,14 +26,16 @@ pytest.mark.usefixtures("backend")
 
 
 def test_vadd_lower_to_linalg(ctx: MLIRContext, backend: LLVMJITBackend):
+    triton_dialect.register_dialect(ctx.context)
+    register_triton_casters()
     from triton_air.types import p_f32_t
 
     BLOCK_SIZE = 64
 
     @tl.jit
-    def vadd(x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: i32_t):
+    def vadd(x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: T.i32_t):
         pid = tl.program_id(axis="x")
-        block_size = arith.constant(BLOCK_SIZE, i32_t)
+        block_size = arith.constant(BLOCK_SIZE, T.i32_t)
         block_start = pid * block_size
         offsets = block_start + tl.arange(0, BLOCK_SIZE)
         mask = offsets < n_elements
@@ -95,14 +99,16 @@ def test_vadd_lower_to_linalg(ctx: MLIRContext, backend: LLVMJITBackend):
 
 
 def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
+    triton_dialect.register_dialect(ctx.context)
+    register_triton_casters()
     from triton_air.types import p_f32_t
 
     BLOCK_SIZE = 64
 
     @tl.jit
-    def vadd(x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: i32_t):
+    def vadd(x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: T.i32_t):
         pid = tl.program_id(axis="x")
-        block_size = arith.constant(BLOCK_SIZE, i32_t)
+        block_size = arith.constant(BLOCK_SIZE, T.i32_t)
         block_start = pid * block_size
         offsets = block_start + tl.arange(0, BLOCK_SIZE)
         mask = offsets < n_elements
@@ -321,7 +327,10 @@ def test_vadd_run(ctx: MLIRContext, backend: LLVMJITBackend):
 
 
 def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
+    triton_dialect.register_dialect(ctx.context)
     from triton_air.types import p_f32_t, float32
+
+    register_triton_casters()
 
     BLOCK_SIZE_M = 16
     BLOCK_SIZE_N = 16
@@ -333,15 +342,15 @@ def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
         a_ptr: p_f32_t,
         b_ptr: p_f32_t,
         c_ptr: p_f32_t,
-        M: i32_t,
-        N: i32_t,
-        K: i32_t,
-        stride_am: i32_t,
-        stride_ak: i32_t,
-        stride_bk: i32_t,
-        stride_bn: i32_t,
-        stride_cm: i32_t,
-        stride_cn: i32_t,
+        M: T.i32_t,
+        N: T.i32_t,
+        K: T.i32_t,
+        stride_am: T.i32_t,
+        stride_ak: T.i32_t,
+        stride_bk: T.i32_t,
+        stride_bn: T.i32_t,
+        stride_cm: T.i32_t,
+        stride_cn: T.i32_t,
     ):
         pid = tl.program_id(axis="x")
         num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
@@ -514,6 +523,8 @@ def test_matmul(ctx: MLIRContext, backend: LLVMJITBackend):
 
 
 def _test_matmul_run(ctx: MLIRContext, backend: LLVMJITBackend):
+    triton_dialect.register_dialect(ctx.context)
+    register_triton_casters()
     from triton_air.types import p_f64_t, float64
 
     D = 8
@@ -527,15 +538,15 @@ def _test_matmul_run(ctx: MLIRContext, backend: LLVMJITBackend):
         a_ptr: p_f64_t,
         b_ptr: p_f64_t,
         c_ptr: p_f64_t,
-        M: i32_t,
-        N: i32_t,
-        K: i32_t,
-        stride_am: i32_t,
-        stride_ak: i32_t,
-        stride_bk: i32_t,
-        stride_bn: i32_t,
-        stride_cm: i32_t,
-        stride_cn: i32_t,
+        M: T.i32_t,
+        N: T.i32_t,
+        K: T.i32_t,
+        stride_am: T.i32_t,
+        stride_ak: T.i32_t,
+        stride_bk: T.i32_t,
+        stride_bn: T.i32_t,
+        stride_cm: T.i32_t,
+        stride_cn: T.i32_t,
     ):
         pid = tl.program_id(axis="x")
         num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)

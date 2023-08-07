@@ -4,6 +4,7 @@ from mlir_utils.dialects.ext import arith
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import filecheck, mlir_ctx as ctx, MLIRContext
+from triton_mlir_bindings.dialects import triton as triton_dialect
 
 from triton_air.dialects import air
 from triton_air.dialects.ext import triton
@@ -12,6 +13,8 @@ pytest.mark.usefixtures("ctx")
 
 
 def test_trampoline_with_triton(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
+
     @triton.jit
     def kernel_0123():
         c64 = arith.constant(64)

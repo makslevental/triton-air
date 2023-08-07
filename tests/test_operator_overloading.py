@@ -7,15 +7,19 @@ from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import mlir_ctx as ctx, filecheck, MLIRContext
+from triton_mlir_bindings.dialects import triton as triton_dialect
 from triton_mlir_bindings.passmanager import PassManager
 
 from triton_air.dialects.ext import triton as tl
+from triton_air.dialects.ext.triton import register_triton_casters
 
 # needed since the fix isn't defined here nor conftest.py
 pytest.mark.usefixtures("ctx")
 
 
 def test_tensor_arithmetic(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
+    register_triton_casters()
     from triton_air.types import p_f32_t
     from mlir_utils.types import i32_t
 
@@ -40,8 +44,11 @@ def test_tensor_arithmetic(ctx: MLIRContext):
 
 
 def test_vadd(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
     from triton_air.types import p_f32_t
     from mlir_utils.types import i32_t
+
+    register_triton_casters()
 
     BLOCK_SIZE = 64
 
@@ -95,6 +102,8 @@ def test_vadd(ctx: MLIRContext):
 
 
 def test_vadd_set_get(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
+    register_triton_casters()
     from triton_air.types import p_f32_t
     from mlir_utils.types import i32_t
 
@@ -153,6 +162,8 @@ def test_vadd_set_get(ctx: MLIRContext):
 
 
 def test_matmul(ctx: MLIRContext):
+    triton_dialect.register_dialect(ctx.context)
+    register_triton_casters()
     from triton_air.types import p_f32_t, float32
     from mlir_utils.types import i32_t
 
@@ -206,9 +217,9 @@ def test_matmul(ctx: MLIRContext):
             acc_next = acc + tl.dot(a, b)
             aptrs_next = aptrs + BLOCK_SIZE_K * stride_ak
             bptrs_next = bptrs + BLOCK_SIZE_K * stride_bk
-            yield_(acc_next, aptrs_next, bptrs_next)
+            acc_res, *_ = yield_(acc_next, aptrs_next, bptrs_next)
 
-        c = acc
+        c = acc_res
 
         offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
         offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
