@@ -7,7 +7,7 @@ from mlir_utils.dialects import triton as tl
 from mlir_utils.dialects.ext import arith
 
 # noinspection PyUnresolvedReferences
-from mlir_utils.testing import filecheck, MLIRContext, mlir_ctx as ctx
+from mlir_utils.testing import filecheck, MLIRContext
 
 # noinspection PyUnresolvedReferences
 from triton_mlir_bindings.dialects import triton as triton_dialect
@@ -15,18 +15,18 @@ from triton_mlir_bindings.dialects import triton as triton_dialect
 from triton_air.dialects.ext import triton
 from triton_air.dialects.ext.triton import splat, arange, addptr, load, store
 
+# noinspection PyUnresolvedReferences
+from triton_air.util import mlir_ctx_fix as ctx
+import triton_air.types as T
+
 pytest.mark.usefixtures("ctx")
 
 
 def test_vadd(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    from mlir_utils.types import i32_t
-    from triton_air.types import p_f32_t
-
     @triton.jit
-    def kernel_0123(arg0: p_f32_t, arg1: p_f32_t, arg2: p_f32_t, arg3: i32_t):
+    def kernel_0123(arg0: T.p_f32_t, arg1: T.p_f32_t, arg2: T.p_f32_t, arg3: T.int32):
         v0 = tl.get_program_id(axis="x")
-        c32 = arith.constant(64, i32_t)
+        c32 = arith.constant(64, T.int32)
         # doesn't until triton catches up to
         # https://github.com/llvm/llvm-project/commit/bfb1ba752655bf09b35c486f6cc9817dbedfb1bb
         # v1 = v0 * c32

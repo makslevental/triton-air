@@ -2,55 +2,41 @@ import pytest
 from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
-from mlir_utils.testing import MLIRContext, mlir_ctx as ctx
-from triton_mlir_bindings.dialects import triton as triton_dialect
+from triton_air.util import mlir_ctx_fix as ctx
+
+from mlir_utils.testing import MLIRContext
+from mlir_utils.types import tensor_t
 from triton_mlir_bindings.ir import Type
+from triton_air.types import get_ptr_type, ptr_t, is_ptr_t
+import triton_air.types as T
 
 pytest.mark.usefixtures("ctx")
 
 
 def test_ptr_type(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    from mlir_utils.types import f32_t
-    from triton_air.types import (
-        ptr_t,
-        get_ptr_type,
-        p_f16_t,
-        p_f64_t,
-        p_bf16_t,
-        is_ptr_t,
-    )
-
-    p_f32_t = ptr_t(f32_t)
-    assert f32_t.isinstance(get_ptr_type(p_f32_t))
+    p_f32_t = ptr_t(T.float32)
+    assert T.float32.isinstance(get_ptr_type(p_f32_t))
     assert (
-        p_f16_t.typeid
+        T.p_f16_t.typeid
         == p_f32_t.typeid
-        == p_f64_t.typeid
+        == T.p_f64_t.typeid
         == p_f32_t.typeid
-        == p_bf16_t.typeid
-        != f32_t.typeid
+        == T.p_bf16_t.typeid
+        != T.float32.typeid
     )
 
     assert is_ptr_t(Type.parse(f"!tt.ptr<f32>"))
     assert is_ptr_t(Type.parse(f"!tt.ptr<bf16>"))
 
-    assert is_ptr_t(p_f16_t)
+    assert is_ptr_t(T.p_f16_t)
     assert is_ptr_t(p_f32_t)
-    assert is_ptr_t(p_f64_t)
-    assert is_ptr_t(p_bf16_t)
+    assert is_ptr_t(T.p_f64_t)
+    assert is_ptr_t(T.p_bf16_t)
 
 
 def test_tensor_ptrs(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    from mlir_utils.types import f32_t, tensor_t
-    from triton_air.types import (
-        ptr_t,
-        is_ptr_t,
-    )
-
-    p_f32_t = ptr_t(f32_t)
-    t = empty((10, 10), f32_t)
+    p_f32_t = ptr_t(T.float32)
+    t = empty((10, 10), T.float32)
     t_ptr_t = ptr_t(t)
     assert is_ptr_t(t_ptr_t)
     assert t_ptr_t.typeid == p_f32_t.typeid
