@@ -14,7 +14,6 @@ from mlir_utils.util import (
     maybe_cast,
     get_result_or_results,
 )
-from triton_mlir_bindings._mlir_libs._mlir.ir import AttrBuilder, ShapedType
 from triton_mlir_bindings.dialects._arith_ops_ext import _is_integer_like_type
 from triton_mlir_bindings.dialects._ods_common import (
     get_op_result_or_value,
@@ -24,6 +23,7 @@ from triton_mlir_bindings.dialects.triton import (
     FuncOp,
     ReturnOp,
     CallOp,
+    get_ptr_type_typeid,
 )
 from triton_mlir_bindings.ir import (
     Attribute,
@@ -34,7 +34,11 @@ from triton_mlir_bindings.ir import (
     Context,
     IntegerType,
     Type,
+    AttrBuilder,
+    ShapedType,
 )
+
+from triton_air.types import is_ptr_t, get_ptr_type
 
 
 @register_attribute_builder("TT_CacheModifierAttr")
@@ -303,8 +307,6 @@ class TritonTensor(Tensor):
         return self, other
 
     def __add__(self, other: Tensor | Value, *, loc=None):
-        from triton_air.types import is_ptr_t
-
         if loc is None:
             loc = get_user_code_loc()
         if isinstance(other, Tensor) and self.shape != other.shape:
@@ -322,8 +324,6 @@ class TritonTensor(Tensor):
         )
 
     def __getitem__(self, idx):
-        from triton_air.types import is_ptr_t
-
         if is_ptr_t(self):
             return load(self, idx)
         if not isinstance(idx, (tuple, list)):
@@ -358,6 +358,7 @@ class TritonTensor(Tensor):
         triton.store(self, value, mask=mask, loc=loc)
 
 
+@register_value_caster(get_ptr_type_typeid())
 class TritonPointer(Scalar):
     def __add__(self, other: Scalar | Tensor, *, loc=None):
         if isinstance(other, Tensor):
@@ -367,6 +368,7 @@ class TritonPointer(Scalar):
             return super().__add__(other)
 
 
+@register_value_caster(IntegerType.static_typeid, 0)
 class TritonScalar(Scalar):
     def coerce(self, other) -> tuple["Tensor", "Tensor"]:
         if isinstance(other, Tensor):
@@ -376,20 +378,10 @@ class TritonScalar(Scalar):
         return super().coerce(other)
 
 
+@register_value_caster(RankedTensorType.static_typeid, 0)
 def maybe_cast_triton_tensor(val: Value):
-    from triton_air.types import is_ptr_t
-
     if is_ptr_t(val):
         return TritonTensor(val)
-
-
-def register_triton_casters():
-    # it doesn't matter which p_f* is used here, the typeid is the same for all
-    from triton_air import types
-
-    register_value_caster(IntegerType.static_typeid, 0)(TritonScalar)
-    register_value_caster(RankedTensorType.static_typeid, 0)(maybe_cast_triton_tensor)
-    register_value_caster(types.p_f16_t.typeid)(TritonPointer)
 
 
 def program_id(axis, *, loc=None, ip=None):
@@ -421,8 +413,6 @@ def load(
     loc=None,
     ip=None,
 ):
-    from triton_air.types import get_ptr_type
-
     if loc is None:
         loc = get_user_code_loc()
     ptr_type = RankedTensorType(ptr.type)
@@ -519,8 +509,6 @@ def addptr(
     loc=None,
     ip=None,
 ):
-    from triton_air.types import get_ptr_type
-
     if loc is None:
         loc = get_user_code_loc()
     if isinstance(offset, int):

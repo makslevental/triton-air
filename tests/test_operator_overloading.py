@@ -6,26 +6,23 @@ from mlir_utils.dialects.ext.scf import range_, yield_
 from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
-from mlir_utils.testing import mlir_ctx as ctx, filecheck, MLIRContext
-from triton_mlir_bindings.dialects import triton as triton_dialect
+from mlir_utils.testing import filecheck, MLIRContext
 from triton_mlir_bindings.passmanager import PassManager
 
 from triton_air.dialects.ext import triton as tl
-from triton_air.dialects.ext.triton import register_triton_casters
+import triton_air.types as T
+
+# noinspection PyUnresolvedReferences
+from triton_air.util import mlir_ctx_fix as ctx
 
 # needed since the fix isn't defined here nor conftest.py
 pytest.mark.usefixtures("ctx")
 
 
 def test_tensor_arithmetic(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    register_triton_casters()
-    from triton_air.types import p_f32_t
-    from mlir_utils.types import i32_t
-
     # number of elements must be power of 2
-    t_p_f32 = empty((16, 16), p_f32_t)
-    t_i32 = empty((16, 16), i32_t)
+    t_p_f32 = empty((16, 16), T.p_f32_t)
+    t_i32 = empty((16, 16), T.int32)
     res = t_p_f32 + t_i32
 
     ctx.module.operation.verify()
@@ -44,20 +41,14 @@ def test_tensor_arithmetic(ctx: MLIRContext):
 
 
 def test_vadd(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    from triton_air.types import p_f32_t
-    from mlir_utils.types import i32_t
-
-    register_triton_casters()
-
     BLOCK_SIZE = 64
 
     @tl.jit
     def kernel_0123(
-        x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: i32_t
+        x_ptr: T.p_f32_t, y_ptr: T.p_f32_t, output_ptr: T.p_f32_t, n_elements: T.int32
     ):
         pid = tl.program_id(axis="x")
-        block_size = arith.constant(BLOCK_SIZE, i32_t)
+        block_size = arith.constant(BLOCK_SIZE, T.int32)
         block_start = pid * block_size
         offsets = block_start + tl.arange(0, BLOCK_SIZE)
         mask = offsets < n_elements
@@ -102,19 +93,14 @@ def test_vadd(ctx: MLIRContext):
 
 
 def test_vadd_set_get(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    register_triton_casters()
-    from triton_air.types import p_f32_t
-    from mlir_utils.types import i32_t
-
     BLOCK_SIZE = 64
 
     @tl.jit
     def kernel_0123(
-        x_ptr: p_f32_t, y_ptr: p_f32_t, output_ptr: p_f32_t, n_elements: i32_t
+        x_ptr: T.p_f32_t, y_ptr: T.p_f32_t, output_ptr: T.p_f32_t, n_elements: T.int32
     ):
         pid = tl.program_id(axis="x")
-        block_size = arith.constant(BLOCK_SIZE, i32_t)
+        block_size = arith.constant(BLOCK_SIZE, T.int32)
         block_start = pid * block_size
         offsets = block_start + tl.arange(0, BLOCK_SIZE)
         mask = offsets < n_elements
@@ -162,11 +148,6 @@ def test_vadd_set_get(ctx: MLIRContext):
 
 
 def test_matmul(ctx: MLIRContext):
-    triton_dialect.register_dialect(ctx.context)
-    register_triton_casters()
-    from triton_air.types import p_f32_t, float32
-    from mlir_utils.types import i32_t
-
     BLOCK_SIZE_M = 16
     BLOCK_SIZE_N = 16
     BLOCK_SIZE_K = 16
@@ -174,18 +155,18 @@ def test_matmul(ctx: MLIRContext):
 
     @tl.jit
     def matmul_kernel(
-        a_ptr: p_f32_t,
-        b_ptr: p_f32_t,
-        c_ptr: p_f32_t,
-        M: i32_t,
-        N: i32_t,
-        K: i32_t,
-        stride_am: i32_t,
-        stride_ak: i32_t,
-        stride_bk: i32_t,
-        stride_bn: i32_t,
-        stride_cm: i32_t,
-        stride_cn: i32_t,
+        a_ptr: T.p_f32_t,
+        b_ptr: T.p_f32_t,
+        c_ptr: T.p_f32_t,
+        M: T.int32,
+        N: T.int32,
+        K: T.int32,
+        stride_am: T.int32,
+        stride_ak: T.int32,
+        stride_bk: T.int32,
+        stride_bn: T.int32,
+        stride_cm: T.int32,
+        stride_cn: T.int32,
     ):
         pid = tl.program_id(axis="x")
         num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
@@ -205,7 +186,7 @@ def test_matmul(ctx: MLIRContext):
         a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
         b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
 
-        accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=float32)
+        accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=T.float32)
         for k, (acc, aptrs, bptrs) in range_(
             0, tl.cdiv(K, BLOCK_SIZE_K), iter_args=[accumulator, a_ptrs, b_ptrs]
         ):
