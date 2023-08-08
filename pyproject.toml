@@ -6,11 +6,12 @@ license = { file = "LICENSE" }
 dependencies = [
     "triton-mlir",
     "numpy",
-    "mlir-python-utils @ git+https://github.com/makslevental/mlir-python-utils@runtime",
+#    "mlir-python-utils @ git+https://github.com/makslevental/mlir-python-utils@runtime",
+    "mlir-python-utils",
     "mlir-native-tools"
 ]
 [project.optional-dependencies] # Optional
-test = ["pytest", "pytest-forked"]
+test = ["pytest"]
 [build-system]
 # https://stackoverflow.com/a/69711730
 requires = ["setuptools>=64.0.0", "wheel", "black"]

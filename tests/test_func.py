@@ -24,7 +24,9 @@ pytest.mark.usefixtures("ctx")
 
 def test_vadd(ctx: MLIRContext):
     @triton.jit
-    def kernel_0123(arg0: T.p_f32_t, arg1: T.p_f32_t, arg2: T.p_f32_t, arg3: T.int32):
+    def kernel_0123(
+        arg0: +T.float32, arg1: +T.float32, arg2: +T.float32, arg3: T.int32
+    ):
         v0 = tl.get_program_id(axis="x")
         c32 = arith.constant(64, T.int32)
         # doesn't until triton catches up to

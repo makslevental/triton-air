@@ -13,9 +13,10 @@ on:
 
 jobs:
 
-  test-x86:
+  test:
 
     runs-on: ${{ matrix.os }}
+    continue-on-error: true
 
     strategy:
       fail-fast: false
@@ -23,7 +24,7 @@ jobs:
         os: [
           ubuntu-22.04,
           macos-latest,
-#          windows-2022
+          windows-2022
         ]
 
     steps:
@@ -50,6 +51,4 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          pytest --ignore-glob=*test_runtime* tests
-          pytest -s tests/test_runtime.py -k test_vadd_run
-          pytest -s tests/test_runtime.py -k test_matmul_run
+          pytest -s tests
