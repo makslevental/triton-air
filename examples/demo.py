@@ -550,14 +550,15 @@ def matmul_run(ctx: MLIRContext, backend: LLVMJITBackend):
         accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=T.float64)
         acc = accumulator
 
+        r = tl.cdiv(K, BLOCK_SIZE_K)
+        # r = 1
         for k, (acc, aptrs, bptrs) in range_(
-            0, tl.cdiv(K, BLOCK_SIZE_K), iter_args=[accumulator, a_ptrs, b_ptrs]
+            0, r, iter_args=[accumulator, a_ptrs, b_ptrs]
         ):
             mask = offs_k[None, :] < K - k * BLOCK_SIZE_K
             a = tl.load(a_ptrs, mask=mask, other=0.0)
             mask = offs_k[:, None] < K - k * BLOCK_SIZE_K
             b = tl.load(b_ptrs, mask=mask, other=0.0)
-            # TODO(max): the problem here is the _update_frame_vars upstream
             acc += tl.dot(a, b)
             aptrs += BLOCK_SIZE_K * stride_ak
             bptrs += BLOCK_SIZE_K * stride_bk
@@ -663,7 +664,7 @@ def matmul_run(ctx: MLIRContext, backend: LLVMJITBackend):
     r = a @ b
     assert len(r.nonzero()) > 0
     assert len(c.nonzero()) > 0
-    # assert np.allclose(r, c)
+    assert np.allclose(r, c)
 
 
 for i in range(10):

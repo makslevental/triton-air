@@ -2,11 +2,10 @@ from typing import Optional, Sequence
 
 import mlir_utils.dialects.ext.tensor
 import mlir_utils.types as T
-from mlir_utils.dialects import triton
+from mlir_utils.dialects import triton, arith
 from mlir_utils.dialects.ext.arith import Scalar, constant, _binary_op
 from mlir_utils.dialects.ext.func import FuncBase
 from mlir_utils.dialects.ext.tensor import Tensor
-from mlir_utils.types import tensor_t
 from mlir_utils.util import (
     make_maybe_no_args_decorator,
     get_user_code_loc,
@@ -38,7 +37,7 @@ from triton_mlir_bindings.ir import (
     ShapedType,
 )
 
-from triton_air.types import is_ptr_t, get_ptr_type
+from triton_air.types import is_ptr, get_ptr_type
 
 
 @register_attribute_builder("TT_CacheModifierAttr")
@@ -160,20 +159,20 @@ def jit(
 def arange(start, end, *, loc=None, ip=None):
     if loc is None:
         loc = get_user_code_loc()
-    result_type = tensor_t(end - start, T.i32_t)
+    result_type = T.tensor(end - start, T.i32)
     return TritonTensor(triton.make_range(result_type, start, end, loc=loc, ip=ip))
 
 
 def splat(src: Value, sizes: tuple[int], *, loc=None, ip=None):
     if loc is None:
         loc = get_user_code_loc()
-    result_type = tensor_t(*sizes, src.type)
+    result_type = T.tensor(*sizes, src.type)
     return TritonTensor(triton.splat(result_type, src, loc=loc, ip=ip))
 
 
 def zeros(shape: Sequence[int], dtype: Optional[Type] = None):
     if dtype is None:
-        dtype = T._f32_t
+        dtype = T._f32
     return TritonTensor(constant(0, RankedTensorType.get(shape, dtype)))
 
 
@@ -311,7 +310,7 @@ class TritonTensor(Tensor):
             loc = get_user_code_loc()
         if isinstance(other, Tensor) and self.shape != other.shape:
             self, other = broadcast_binary(self, other)
-        if is_ptr_t(self):
+        if is_ptr(self):
             return addptr(self, other, loc=loc)
 
         return TritonTensor(super().__add__(other))
@@ -324,7 +323,7 @@ class TritonTensor(Tensor):
         )
 
     def __getitem__(self, idx):
-        if is_ptr_t(self):
+        if is_ptr(self):
             return load(self, idx)
         if not isinstance(idx, (tuple, list)):
             idx = [idx]
@@ -380,7 +379,7 @@ class TritonScalar(Scalar):
 
 @register_value_caster(RankedTensorType.static_typeid, 0)
 def maybe_cast_triton_tensor(val: Value):
-    if is_ptr_t(val):
+    if is_ptr(val):
         return TritonTensor(val)
 
 
@@ -397,7 +396,11 @@ def num_programs(axis, *, loc=None, ip=None):
 
 
 def cdiv(lhs, rhs, *, loc=None, ip=None):
-    return lhs / rhs
+    if loc is None:
+        loc = get_user_code_loc()
+    lhs, rhs = lhs.coerce(rhs)
+    # return (lhs + rhs - 1) // rhs
+    return arith.ceildivsi(lhs, rhs, loc=loc)
 
 
 def load(

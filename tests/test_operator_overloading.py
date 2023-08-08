@@ -21,7 +21,7 @@ pytest.mark.usefixtures("ctx")
 
 def test_tensor_arithmetic(ctx: MLIRContext):
     # number of elements must be power of 2
-    t_p_f32 = empty((16, 16), T.p_f32_t)
+    t_p_f32 = empty((16, 16), +T.float32)
     t_i32 = empty((16, 16), T.int32)
     res = t_p_f32 + t_i32
 
@@ -45,7 +45,10 @@ def test_vadd(ctx: MLIRContext):
 
     @tl.jit
     def kernel_0123(
-        x_ptr: T.p_f32_t, y_ptr: T.p_f32_t, output_ptr: T.p_f32_t, n_elements: T.int32
+        x_ptr: +T.float32,
+        y_ptr: +T.float32,
+        output_ptr: +T.float32,
+        n_elements: T.int32,
     ):
         pid = tl.program_id(axis="x")
         block_size = arith.constant(BLOCK_SIZE, T.int32)
@@ -97,7 +100,10 @@ def test_vadd_set_get(ctx: MLIRContext):
 
     @tl.jit
     def kernel_0123(
-        x_ptr: T.p_f32_t, y_ptr: T.p_f32_t, output_ptr: T.p_f32_t, n_elements: T.int32
+        x_ptr: +T.float32,
+        y_ptr: +T.float32,
+        output_ptr: +T.float32,
+        n_elements: T.int32,
     ):
         pid = tl.program_id(axis="x")
         block_size = arith.constant(BLOCK_SIZE, T.int32)
@@ -155,9 +161,9 @@ def test_matmul(ctx: MLIRContext):
 
     @tl.jit
     def matmul_kernel(
-        a_ptr: T.p_f32_t,
-        b_ptr: T.p_f32_t,
-        c_ptr: T.p_f32_t,
+        a_ptr: +T.float32,
+        b_ptr: +T.float32,
+        c_ptr: +T.float32,
         M: T.int32,
         N: T.int32,
         K: T.int32,
@@ -187,20 +193,24 @@ def test_matmul(ctx: MLIRContext):
         b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
 
         accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=T.float32)
+        acc = accumulator
+
+        r = tl.cdiv(K, BLOCK_SIZE_K)
+        # r = 1
         for k, (acc, aptrs, bptrs) in range_(
-            0, tl.cdiv(K, BLOCK_SIZE_K), iter_args=[accumulator, a_ptrs, b_ptrs]
+            0, r, iter_args=[accumulator, a_ptrs, b_ptrs]
         ):
             mask = offs_k[None, :] < K - k * BLOCK_SIZE_K
             a = tl.load(a_ptrs, mask=mask, other=0.0)
             mask = offs_k[:, None] < K - k * BLOCK_SIZE_K
             b = tl.load(b_ptrs, mask=mask, other=0.0)
             # TODO(max): the problem here is the _update_frame_vars upstream
-            acc_next = acc + tl.dot(a, b)
-            aptrs_next = aptrs + BLOCK_SIZE_K * stride_ak
-            bptrs_next = bptrs + BLOCK_SIZE_K * stride_bk
-            acc_res, *_ = yield_(acc_next, aptrs_next, bptrs_next)
+            acc += tl.dot(a, b)
+            aptrs += BLOCK_SIZE_K * stride_ak
+            bptrs += BLOCK_SIZE_K * stride_bk
+            acc, *_ = yield_(acc, aptrs, bptrs)
 
-        c = acc_res
+        c = acc
 
         offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
         offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
@@ -219,8 +229,8 @@ def test_matmul(ctx: MLIRContext):
       tt.func @matmul_kernel(%arg0: !tt.ptr<f32>, %arg1: !tt.ptr<f32>, %arg2: !tt.ptr<f32>, %arg3: i32, %arg4: i32, %arg5: i32, %arg6: i32, %arg7: i32, %arg8: i32, %arg9: i32, %arg10: i32, %arg11: i32) {
         %0 = tt.get_program_id x : i32
         %c16_i32 = arith.constant 16 : i32
-        %1 = arith.divsi %arg3, %c16_i32 : i32
-        %2 = arith.divsi %arg4, %c16_i32 : i32
+        %1 = arith.ceildivsi %arg3, %c16_i32 : i32
+        %2 = arith.ceildivsi %arg4, %c16_i32 : i32
         %c2_i32 = arith.constant 2 : i32
         %3 = arith.muli %2, %c2_i32 : i32
         %4 = arith.floordivsi %0, %3 : i32
@@ -260,7 +270,7 @@ def test_matmul(ctx: MLIRContext):
         %38 = tt.splat %arg1 : (!tt.ptr<f32>) -> tensor<16x16x!tt.ptr<f32>>
         %39 = tt.addptr %38, %37 : tensor<16x16x!tt.ptr<f32>>, tensor<16x16xi32>
         %cst = arith.constant dense<0.000000e+00> : tensor<16x16xf32>
-        %40 = arith.divsi %arg5, %c16_i32 : i32
+        %40 = arith.ceildivsi %arg5, %c16_i32 : i32
         %c0 = arith.constant 0 : index
         %41 = arith.index_cast %40 : i32 to index
         %c1 = arith.constant 1 : index
