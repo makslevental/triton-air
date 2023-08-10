@@ -3,7 +3,7 @@ from mlir_utils.context import MLIRContext
 from mlir_utils.dialects import triton as tt
 
 # noinspection PyUnresolvedReferences
-from triton_air.util import mlir_ctx_fix as ctx
+from triton_pp.util import mlir_ctx_fix as ctx
 
 from mlir_utils.testing import filecheck
 from triton_mlir_bindings.dialects import (
@@ -11,8 +11,8 @@ from triton_mlir_bindings.dialects import (
 )
 from triton_mlir_bindings.ir import IntegerType
 
-from triton_air.dialects import air
-import triton_air.types as T
+from triton_pp.dialects import air
+import triton_pp.types as T
 
 pytest.mark.usefixtures("ctx")
 

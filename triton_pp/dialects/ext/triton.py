@@ -37,7 +37,7 @@ from triton_mlir_bindings.ir import (
     ShapedType,
 )
 
-from triton_air.types import is_ptr, get_ptr_type
+from triton_pp.types import is_ptr, get_ptr_type
 
 
 @register_attribute_builder("TT_CacheModifierAttr")
