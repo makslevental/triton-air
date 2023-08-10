@@ -12,12 +12,12 @@ from mlir_utils.testing import filecheck, MLIRContext
 # noinspection PyUnresolvedReferences
 from triton_mlir_bindings.dialects import triton as triton_dialect
 
-from triton_air.dialects.ext import triton
-from triton_air.dialects.ext.triton import splat, arange, addptr, load, store
+from triton_pp.dialects.ext import triton
+from triton_pp.dialects.ext.triton import splat, arange, addptr, load, store
 
 # noinspection PyUnresolvedReferences
-from triton_air.util import mlir_ctx_fix as ctx
-import triton_air.types as T
+from triton_pp.util import mlir_ctx_fix as ctx
+import triton_pp.types as T
 
 pytest.mark.usefixtures("ctx")
 
