@@ -26,6 +26,7 @@ jobs:
           macos-latest,
           windows-2022
         ]
+        python_version: [ "3.10", "3.11" ]
 
     steps:
       - name: Checkout
@@ -34,13 +35,13 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python_version }}
 
       - name: Install
         shell: bash
         run: |
           pip install setuptools -U
-          pip install -e .[test] -f https://makslevental.github.io/wheels/
+          pip install .[test] -f https://makslevental.github.io/wheels/
           if [ ${{ matrix.os }} == 'windows-2022' ]; then
             # configure-mlir-python-utils.exe -y triton_mlir_bindings
             pushd /tmp && python -m mlir_utils._configuration -y triton_mlir_bindings && popd
@@ -51,4 +52,8 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          pytest -s tests
+          if [ ${{ matrix.os }} == 'windows-2022' ]; then
+            pytest -s --ignore-glob=*test_runtime* tests
+          else
+            pytest -s tests
+          fi

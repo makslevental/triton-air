@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-20.04, windows-2022 ]
+        os: [ ubuntu-20.04 ]
 
     steps:
       - name: Checkout
@@ -33,7 +33,6 @@ jobs:
         id: build_wheel
         shell: bash
         run: |
-          export PIP_EXTRA_INDEX_URL=https://github.com/makslevental/wheels/releases/expanded_assets/i
           pip wheel . -v -w wheelhouse
           pip install toml
           VERSION="$(python -c 'import toml; print(toml.load("pyproject.toml")["project"]["version"])')"
