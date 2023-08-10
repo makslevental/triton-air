@@ -2,13 +2,13 @@ import pytest
 from mlir_utils.dialects.ext.tensor import empty
 
 # noinspection PyUnresolvedReferences
-from triton_air.util import mlir_ctx_fix as ctx
+from triton_pp.util import mlir_ctx_fix as ctx
 
 from mlir_utils.testing import MLIRContext
 from mlir_utils.types import tensor
 from triton_mlir_bindings.ir import Type
-from triton_air.types import get_ptr_type, ptr, is_ptr
-import triton_air.types as T
+from triton_pp.types import get_ptr_type, ptr, is_ptr
+import triton_pp.types as T
 
 pytest.mark.usefixtures("ctx")
 

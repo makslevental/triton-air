@@ -102,7 +102,7 @@ def __getattr__(name):
 
 
 def is_ptr(o: Type | Value):
-    from triton_air.dialects.ext.triton import TritonPointer
+    from triton_pp.dialects.ext.triton import TritonPointer
 
     if isinstance(o, TritonPointer):
         return True

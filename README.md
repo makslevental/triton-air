@@ -3,7 +3,7 @@
 ## Install
 
 ```shell
-$ pip install triton-air -f https://makslevental.github.io/wheels/
+$ pip install triton-pp -f https://makslevental.github.io/wheels/
 $ configure-mlir-python-utils triton_mlir_bindings
 ```
 

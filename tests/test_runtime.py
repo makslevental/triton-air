@@ -11,15 +11,15 @@ from mlir_utils.runtime.passes import Pipeline, convert_linalg_to_loops
 from mlir_utils.runtime.refbackend import LLVMJITBackend
 
 # noinspection PyUnresolvedReferences
-from triton_air.util import mlir_ctx_fix as ctx
+from triton_pp.util import mlir_ctx_fix as ctx
 
 # noinspection PyUnresolvedReferences
 from mlir_utils.testing import filecheck, MLIRContext, backend
 from mlir_utils.util import find_ops
 from triton_mlir_bindings.runtime import get_unranked_memref_descriptor
 
-from triton_air.dialects.ext import triton as tl
-import triton_air.types as T
+from triton_pp.dialects.ext import triton as tl
+import triton_pp.types as T
 
 # needed since the fix isn't defined here nor conftest.py
 pytest.mark.usefixtures("ctx")
