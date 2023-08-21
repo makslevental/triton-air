@@ -12,6 +12,7 @@ from triton_mlir_bindings.dialects import (
 from triton_mlir_bindings.ir import IntegerType
 
 from triton_pp.dialects import air
+from triton_pp.dialects.ext import triton as tl
 import triton_pp.types as T
 
 pytest.mark.usefixtures("ctx")
@@ -50,5 +51,6 @@ def test_smoke_with_triton(ctx: MLIRContext):
       }
     }
     """
+    print(ctx.module)
     ctx.module.operation.verify()
     filecheck(correct, ctx.module)

@@ -675,6 +675,7 @@ def matmul_run(ctx: MLIRContext, backend: LLVMJITBackend):
     r = a @ b
     assert len(r.nonzero()) > 0
     assert len(c.nonzero()) > 0
+    print(r)
     print(c)
 
 
