@@ -1,7 +1,5 @@
-from mlir_utils.util import get_result_or_results, maybe_cast, region_op
-from triton_mlir_bindings.ir import Value, Type
-
-from ._air_ops_gen import (
+from triton_mlir_bindings.ir import Value, Attribute, Type
+from triton_pp.dialects._air_ops_gen import (
     AllocOp,
     ChannelGetOp,
     ChannelOp,
@@ -21,6 +19,12 @@ from ._air_ops_gen import (
     SegmentTerminatorOp,
     WaitAllOp,
 )
+from mlir_utils.util import (
+    get_result_or_results,
+    maybe_cast,
+    region_op,
+    get_user_code_loc,
+)
 
 
 def alloc(
@@ -29,8 +33,10 @@ def alloc(
     async_dependencies: list[Value],
     *,
     loc=None,
-    ip=None,
+    ip=None
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(
             AllocOp(async_token, result, async_dependencies, loc=loc, ip=ip)
@@ -38,7 +44,7 @@ def alloc(
     )
 
 
-def get(
+def channel_get(
     async_token: Type,
     async_dependencies: list[Value],
     chan_name,
@@ -49,8 +55,10 @@ def get(
     dst_strides: list[Value],
     *,
     loc=None,
-    ip=None,
+    ip=None
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(
             ChannelGetOp(
@@ -70,12 +78,14 @@ def get(
 
 
 def channel(sym_name, *, size=None, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(ChannelOp(sym_name, size=size, loc=loc, ip=ip))
     )
 
 
-def put(
+def channel_put(
     async_token: Type,
     async_dependencies: list[Value],
     chan_name,
@@ -86,8 +96,10 @@ def put(
     src_strides: list[Value],
     *,
     loc=None,
-    ip=None,
+    ip=None
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(
             ChannelPutOp(
@@ -112,8 +124,10 @@ def dealloc(
     memref: Value,
     *,
     loc=None,
-    ip=None,
+    ip=None
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(
             DeallocOp(async_token, async_dependencies, memref, loc=loc, ip=ip)
@@ -134,8 +148,10 @@ def dma_memcpy_nd(
     src_strides: list[Value],
     *,
     loc=None,
-    ip=None,
+    ip=None
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(
             DmaMemcpyNdOp(
@@ -163,12 +179,16 @@ def execute(
     async_dependencies: list[Value],
     *,
     loc=None,
-    ip=None,
+    ip=None
 ):
+    if loc is None:
+        loc = get_user_code_loc()
     return ExecuteOp(async_token, results_, async_dependencies, loc=loc, ip=ip)
 
 
 def execute_terminator(results_: list[Value] = None, *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     results_ = results_ or []
     return maybe_cast(
         get_result_or_results(ExecuteTerminatorOp(results_, loc=loc, ip=ip))
@@ -177,49 +197,69 @@ def execute_terminator(results_: list[Value] = None, *, loc=None, ip=None):
 
 @region_op
 def pipeline(*, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return HerdPipelineOp(loc=loc, ip=ip)
 
 
 def herd_terminator(*, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(get_result_or_results(HerdTerminatorOp(loc=loc, ip=ip)))
 
 
 def launch_terminator(*, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(get_result_or_results(LaunchTerminatorOp(loc=loc, ip=ip)))
 
 
-def get(results_: list[Type], src0: Value, src1: Value, *, loc=None, ip=None):
+def pipeline_get(results_: list[Type], src0: Value, src1: Value, *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(PipelineGetOp(results_, src0, src1, loc=loc, ip=ip))
     )
 
 
-def put(dst0: Value, dst1: Value, opers: list[Value], *, loc=None, ip=None):
+def pipeline_put(dst0: Value, dst1: Value, opers: list[Value], *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(PipelinePutOp(dst0, dst1, opers, loc=loc, ip=ip))
     )
 
 
 @region_op
-def stage(results_: list[Type], opers: list[Value], *, loc=None, ip=None):
+def pipeline_stage(results_: list[Type], opers: list[Value], *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return PipelineStageOp(results_, opers, loc=loc, ip=ip)
 
 
-def terminator(opers: list[Value], *, loc=None, ip=None):
+def pipeline_terminator(opers: list[Value], *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(PipelineTerminatorOp(opers, loc=loc, ip=ip))
     )
 
 
-def yield_(opers: list[Value], *, loc=None, ip=None):
+def pipeline_yield(opers: list[Value], *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(get_result_or_results(PipelineYieldOp(opers, loc=loc, ip=ip)))
 
 
 def segment_terminator(*, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(get_result_or_results(SegmentTerminatorOp(loc=loc, ip=ip)))
 
 
 def wait_all(async_token: Type, async_dependencies: list[Value], *, loc=None, ip=None):
+    if loc is None:
+        loc = get_user_code_loc()
     return maybe_cast(
         get_result_or_results(
             WaitAllOp(async_token, async_dependencies, loc=loc, ip=ip)
@@ -229,9 +269,9 @@ def wait_all(async_token: Type, async_dependencies: list[Value], *, loc=None, ip
 
 __all__ = [
     "alloc",
-    "get",
+    "channel_get",
     "channel",
-    "put",
+    "channel_put",
     "dealloc",
     "dma_memcpy_nd",
     "execute",
@@ -239,11 +279,11 @@ __all__ = [
     "pipeline",
     "herd_terminator",
     "launch_terminator",
-    "get",
-    "put",
-    "stage",
-    "terminator",
-    "yield_",
+    "pipeline_get",
+    "pipeline_put",
+    "pipeline_stage",
+    "pipeline_terminator",
+    "pipeline_yield",
     "segment_terminator",
     "wait_all",
 ]
